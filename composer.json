@@ -1,0 +1,52 @@
+{
+    "name": "actualizer/passkey",
+    "description": "Passkey / WebAuthn login for Shopware storefront and administration",
+    "version": "1.0.0",
+    "type": "shopware-platform-plugin",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Actualize",
+            "email": "plugin@actualize.de",
+            "homepage": "https://actualize.de",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=8.4",
+        "shopware/core": ">=6.7 <6.8",
+        "shopware/storefront": ">=6.7 <6.8",
+        "web-auth/webauthn-lib": "^5.3"
+    },
+    "extra": {
+        "shopware-plugin-class": "Actualize\\Passkey\\ActPasskey",
+        "label": {
+            "de-DE": "Actualize: Passkey Login",
+            "en-GB": "Actualize: Passkey Login"
+        },
+        "description": {
+            "de-DE": "Ermöglicht passwortlosen Passkey- und WebAuthn-Login im Storefront und in der Administration von Shopware 6.7 – sichere Anmeldung für Kunden und Admins ohne Passwort.",
+            "en-GB": "Enables passwordless Passkey and WebAuthn login for the Shopware 6.7 storefront and administration – secure, phishing-resistant sign-in for customers and admins."
+        },
+        "manufacturerLink": {
+            "de-DE": "https://actualize.de",
+            "en-GB": "https://actualize.de"
+        },
+        "supportLink": {
+            "de-DE": "https://actualize.de",
+            "en-GB": "https://actualize.de"
+        }
+    },
+    "autoload": {
+        "psr-4": { "Actualize\\Passkey\\": "src/" }
+    },
+    "config": {
+        "allow-plugins": {
+            "symfony/runtime": true
+        }
+    },
+    "scripts": {
+        "format": "docker run --rm -v $(pwd):/ext shopware/shopware-cli:latest extension format /ext",
+        "check": "docker run --rm -v $(pwd):/ext shopware/shopware-cli:latest extension validate --full /ext"
+    }
+}

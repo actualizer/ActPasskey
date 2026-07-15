@@ -1,0 +1,10 @@
+parameters:
+    level: 8
+    # PHPDoc types are HINTS, not GUARANTEES. Treat them as uncertain so
+    # defensive `?->`/`?? default`/`is_*()` guards are NOT flagged redundant.
+    treatPhpDocTypesAsCertain: false
+    paths:
+        - src/
+    excludePaths:
+        - src/Migration/*
+    reportUnmatchedIgnoredErrors: false
