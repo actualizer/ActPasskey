@@ -40,11 +40,6 @@
     "autoload": {
         "psr-4": { "Actualize\\Passkey\\": "src/" }
     },
-    "config": {
-        "allow-plugins": {
-            "symfony/runtime": true
-        }
-    },
     "scripts": {
         "format": "docker run --rm -v $(pwd):/ext shopware/shopware-cli:latest extension format /ext",
         "check": "docker run --rm -v $(pwd):/ext shopware/shopware-cli:latest extension validate --full /ext"
