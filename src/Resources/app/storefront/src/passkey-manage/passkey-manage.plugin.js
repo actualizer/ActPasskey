@@ -35,27 +35,33 @@ export default class PasskeyManage extends Plugin {
     // authenticator and stay available when the browser cannot do passkeys.
     _initItems() {
         this.el.querySelectorAll('[data-act-passkey-item]').forEach((item) => {
-            const actions = item.querySelector('[data-act-passkey-item-actions]');
+            const actions = item.querySelectorAll('[data-act-passkey-item-actions]');
             const renameForm = item.querySelector('[data-act-passkey-rename-form]');
             const deleteForm = item.querySelector('[data-act-passkey-delete-form]');
             const renameCancel = item.querySelector('[data-act-passkey-rename-cancel]');
             const deleteCancel = item.querySelector('[data-act-passkey-delete-cancel]');
 
-            if (!actions || !renameForm || !deleteForm) {
+            if (!actions.length || !renameForm || !deleteForm) {
                 return;
             }
+
+            const showActions = (visible) => {
+                actions.forEach((action) => {
+                    action.hidden = !visible;
+                });
+            };
 
             const collapse = () => {
                 renameForm.hidden = true;
                 deleteForm.hidden = true;
-                actions.hidden = false;
+                showActions(true);
             };
 
             const expand = (form) => {
                 renameForm.hidden = true;
                 deleteForm.hidden = true;
                 form.hidden = false;
-                actions.hidden = true;
+                showActions(false);
                 form.querySelector('input')?.focus();
             };
 

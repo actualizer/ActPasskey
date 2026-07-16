@@ -20,8 +20,10 @@
                     <ul class="list-unstyled mb-3 act-passkey-manage__list">
                         {% for credential in passkeyCredentials %}
                             <li class="act-passkey-manage__item mb-3" data-act-passkey-item>
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                    <div class="act-passkey-manage__summary">
+                                {# Same grid as the credentials section above, so the
+                                   actions line up with its change links. #}
+                                <div class="row align-items-center">
+                                    <div class="col-12 col-md-6">
                                         <div class="act-passkey-manage__name">{{ credential.name }}</div>
                                         <div class="act-passkey-manage__meta text-muted small">
                                             {% if credential.lastUsedAt %}
@@ -32,16 +34,21 @@
                                         </div>
                                     </div>
 
-                                    <div class="act-passkey-manage__actions d-flex gap-2"
+                                    <div class="col-12 col-sm-6 col-md-3 mt-2 mt-md-0"
                                          data-act-passkey-item-actions
                                          hidden>
                                         <button type="button"
-                                                class="btn btn-sm btn-outline-secondary"
+                                                class="btn btn-link account-profile-change p-0 align-baseline"
                                                 data-act-passkey-rename-toggle>
                                             {{ 'act-passkey.manage.rename'|trans }}
                                         </button>
+                                    </div>
+
+                                    <div class="col-12 col-sm-6 col-md-3 mt-2 mt-md-0"
+                                         data-act-passkey-item-actions
+                                         hidden>
                                         <button type="button"
-                                                class="btn btn-sm btn-outline-danger"
+                                                class="btn btn-link link-danger account-profile-change p-0 align-baseline"
                                                 data-act-passkey-delete-toggle>
                                             {{ 'act-passkey.manage.delete'|trans }}
                                         </button>
