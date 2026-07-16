@@ -26,8 +26,10 @@
              and `Symfony\Component\Clock\ClockInterface` are both private aliases for the
              `clock` service (Symfony\Component\Clock\Clock). Referencing a private alias as
              a constructor argument works fine — privacy only blocks direct container->get(). -->
+        <!-- Backed by `cache.app` (not the session) so challenges survive on the
+             stateless admin /api endpoint — see ChallengeStore class doc. -->
         <service id="Actualize\Passkey\WebAuthn\Challenge\ChallengeStore" public="true">
-            <argument type="service" id="request_stack"/>
+            <argument type="service" id="cache.app"/>
             <argument type="service" id="Psr\Clock\ClockInterface"/>
         </service>
 
