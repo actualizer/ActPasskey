@@ -1,0 +1,25 @@
+# Own rate-limiter buckets for the passkey self-service mutations. Each key here
+# is turned into a RateLimiterFactory by the core RateLimiterCompilerPass and is
+# addressable via RateLimiter::ensureAccepted('<key>', $cacheKey).
+# Under APP_ENV=test the core wraps every factory in NoLimiter, so tests are unaffected.
+shopware:
+    api:
+        rate_limiter:
+            act_passkey_register:
+                enabled: true
+                policy: 'time_backoff'
+                reset: '24 hours'
+                limits:
+                    -   limit: 5
+                        interval: '60 seconds'
+                    -   limit: 10
+                        interval: '300 seconds'
+            act_passkey_delete:
+                enabled: true
+                policy: 'time_backoff'
+                reset: '24 hours'
+                limits:
+                    -   limit: 5
+                        interval: '60 seconds'
+                    -   limit: 10
+                        interval: '300 seconds'
