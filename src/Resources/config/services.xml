@@ -83,5 +83,21 @@
             <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\WebauthnSerializer"/>
         </service>
+
+        <service id="Actualize\Passkey\OAuth\PasskeyGrant">
+            <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
+        </service>
+
+        <!-- Enables the `passkey` grant on the shared, per-request AuthorizationServer.
+             Mirrors core's ApiAuthenticationListener::setupOAuth() (KernelEvents::REQUEST,
+             priority 128). Public so it can be resolved directly in integration tests. -->
+        <service id="Actualize\Passkey\OAuth\PasskeyGrantSubscriber" public="true">
+            <argument type="service" id="shopware.api.authorization_server"/>
+            <argument type="service" id="Actualize\Passkey\OAuth\PasskeyGrant"/>
+            <argument type="string">%shopware.api.access_token_ttl%</argument>
+            <argument type="string">%shopware.api.refresh_token_ttl%</argument>
+            <tag name="kernel.event_subscriber"/>
+        </service>
     </services>
 </container>
