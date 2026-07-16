@@ -26,10 +26,14 @@
              and `Symfony\Component\Clock\ClockInterface` are both private aliases for the
              `clock` service (Symfony\Component\Clock\Clock). Referencing a private alias as
              a constructor argument works fine — privacy only blocks direct container->get(). -->
-        <!-- Backed by `cache.app` (not the session) so challenges survive on the
-             stateless admin /api endpoint — see ChallengeStore class doc. -->
+        <!-- Own pool (see Resources/config/packages/framework.yaml), NOT the
+             session: challenges must survive on the stateless admin /api
+             endpoint. And NOT `cache.app` either — Shopware maps that to
+             cache.adapter.array in dev, which lives for one request only, so
+             every two-request passkey flow would break locally while passing
+             in prod. See the ChallengeStore class doc. -->
         <service id="Actualize\Passkey\WebAuthn\Challenge\ChallengeStore" public="true">
-            <argument type="service" id="cache.app"/>
+            <argument type="service" id="act_passkey.challenge_pool"/>
             <argument type="service" id="Psr\Clock\ClockInterface"/>
         </service>
 

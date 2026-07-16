@@ -1,0 +1,21 @@
+# Dedicated, explicitly persistent cache pool for WebAuthn challenges.
+#
+# A challenge MUST survive between two separate HTTP requests: one hands the
+# challenge to the browser, the browser has the authenticator sign it, and a
+# second request redeems it. `cache.app` cannot be used for that: Shopware maps
+# it to `cache.adapter.array` in the dev environment, which lives for exactly
+# one request — so every passkey flow (admin login, storefront login, and
+# enrollment) fails locally with "Invalid or expired challenge", while working
+# in prod where `cache.app` is filesystem-backed. An environment-dependent
+# auth flow is worse than a broken one, so we pin the adapter ourselves.
+#
+# Operators can point this pool at Redis (or any PSR-6 adapter) by overriding
+# `framework.cache.pools.act_passkey.challenge_pool.adapter` in their own config.
+framework:
+    cache:
+        pools:
+            act_passkey.challenge_pool:
+                adapter: cache.adapter.filesystem
+                # Slightly above the store's own 120s TTL + 5s backstop; the
+                # store still enforces expiry itself, this is only a floor.
+                default_lifetime: 300
