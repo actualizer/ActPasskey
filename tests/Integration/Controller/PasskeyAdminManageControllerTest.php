@@ -6,6 +6,7 @@ use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\Api\OAuth\Scope\UserVerifiedScope;
@@ -161,22 +162,40 @@ final class PasskeyAdminManageControllerTest extends TestCase
         self::assertSame('B Key', $ownedByB->first()?->getName());
     }
 
-    public function testMutationWithoutUserVerifiedScopeIsRejected(): void
+    /**
+     * Covers all four mutating routes (register-challenge, register, rename,
+     * delete) so a dropped assertUserVerified() call on any single one of them
+     * fails this test, not just the route where it happened to be tested before.
+     *
+     * @return iterable<string, array{0: string, 1: string, 2: array<string, mixed>}>
+     */
+    public static function mutatingRouteProvider(): iterable
+    {
+        yield 'register-challenge' => ['POST', '/api/_action/act-passkey/admin/register-challenge', []];
+        yield 'register' => ['POST', '/api/_action/act-passkey/admin/register', [
+            'passkey_response' => '{}',
+            'passkey_challenge_id' => Uuid::randomHex(),
+            'name' => 'Should not be created',
+        ]];
+        yield 'rename' => [
+            'PATCH',
+            '/api/_action/act-passkey/admin/credentials/' . Uuid::randomHex(),
+            ['name' => 'Hijacked'],
+        ];
+        yield 'delete' => ['DELETE', '/api/_action/act-passkey/admin/credentials/' . Uuid::randomHex(), []];
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     */
+    #[DataProvider('mutatingRouteProvider')]
+    public function testMutationWithoutUserVerifiedScopeIsRejected(string $method, string $uri, array $params): void
     {
         $userA = $this->createAdminUser();
 
         // A REAL admin token, just without the password step-up scope — exactly
         // what a passkey-issued token looks like.
-        $response = $this->apiRequest(
-            'POST',
-            '/api/_action/act-passkey/admin/register',
-            $this->token($userA, 'write'),
-            [
-                'passkey_response' => '{}',
-                'passkey_challenge_id' => Uuid::randomHex(),
-                'name' => 'Should not be created',
-            ]
-        );
+        $response = $this->apiRequest($method, $uri, $this->token($userA, 'write'), $params);
 
         self::assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode(), (string) $response->getContent());
         $data = json_decode((string) $response->getContent(), true);

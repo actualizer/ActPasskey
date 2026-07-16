@@ -140,6 +140,7 @@ class PasskeyAdminManageController
         path: '/api/_action/act-passkey/admin/credentials/{id}',
         name: 'api.action.act_passkey.admin.credentials.rename',
         methods: ['PATCH'],
+        requirements: ['id' => '[0-9a-f]{32}'],
     )]
     public function rename(string $id, Request $request, Context $context): Response
     {
@@ -160,6 +161,7 @@ class PasskeyAdminManageController
         path: '/api/_action/act-passkey/admin/credentials/{id}',
         name: 'api.action.act_passkey.admin.credentials.delete',
         methods: ['DELETE'],
+        requirements: ['id' => '[0-9a-f]{32}'],
     )]
     public function delete(string $id, Request $request, Context $context): Response
     {
@@ -176,7 +178,11 @@ class PasskeyAdminManageController
         // Same as rename: no existence oracle, so the result is not surfaced.
         $this->credentials->deleteOwned($id, Realm::Admin, $userId, $context);
 
-        $this->rateLimiter->reset('act_passkey_delete', $rateLimitKey);
+        // Deliberately NO reset() here, unlike register(): deleteOwned() has no
+        // throwing path (foreign/missing rows both just return false), so a reset
+        // would run unconditionally on every call and the bucket could never
+        // accumulate — the throttle against mass-revocation would be inert. Let
+        // it decay on its configured interval instead.
 
         return new Response(null, Response::HTTP_NO_CONTENT);
     }
