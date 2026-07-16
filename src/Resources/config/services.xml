@@ -49,5 +49,12 @@
             <argument type="string">%APP_URL%</argument>
             <argument type="service" id="sales_channel_domain.repository"/>
         </service>
+
+        <!-- Builds the webauthn-lib CeremonyStepManagers with the pinned origin
+             allowlist; algorithm/attestation-support managers stay at the
+             library's own defaults (ES256/RS256, none-attestation). -->
+        <service id="Actualize\Passkey\WebAuthn\Ceremony\CeremonyFactory" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\OriginAllowlistProvider"/>
+        </service>
     </services>
 </container>
