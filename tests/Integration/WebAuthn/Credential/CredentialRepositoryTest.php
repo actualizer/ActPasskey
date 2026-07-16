@@ -98,11 +98,12 @@ final class CredentialRepositoryTest extends TestCase
     public function testCustomerCredentialInvisibleToAdminRealm(): void
     {
         $sut = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
         $cred = Uuid::randomBytes();
         $this->seed('customer', null, $this->createCustomer(), $cred);
 
-        self::assertNull($sut->findOneByCredentialId($cred, Realm::Admin), 'realm boundary: not visible to admin');
-        self::assertNotNull($sut->findOneByCredentialId($cred, Realm::Customer), 'visible in its own realm');
+        self::assertNull($sut->findOneByCredentialId($cred, Realm::Admin, $ctx), 'realm boundary: not visible to admin');
+        self::assertNotNull($sut->findOneByCredentialId($cred, Realm::Customer, $ctx), 'visible in its own realm');
     }
 
     public function testDeleteOwnedRejectsForeignOwner(): void
@@ -114,14 +115,14 @@ final class CredentialRepositoryTest extends TestCase
         $cred = Uuid::randomBytes();
         $this->seed('customer', null, $ownerA, $cred);
 
-        $row = $sut->findOneByCredentialId($cred, Realm::Customer);
+        $row = $sut->findOneByCredentialId($cred, Realm::Customer, $ctx);
         self::assertNotNull($row);
 
         self::assertFalse($sut->deleteOwned($row->getId(), Realm::Customer, $attackerB, $ctx), 'B cannot delete A key');
-        self::assertNotNull($sut->findOneByCredentialId($cred, Realm::Customer), 'A key survives foreign delete attempt');
+        self::assertNotNull($sut->findOneByCredentialId($cred, Realm::Customer, $ctx), 'A key survives foreign delete attempt');
 
         self::assertTrue($sut->deleteOwned($row->getId(), Realm::Customer, $ownerA, $ctx), 'owner can delete own key');
-        self::assertNull($sut->findOneByCredentialId($cred, Realm::Customer), 'key gone after owner delete');
+        self::assertNull($sut->findOneByCredentialId($cred, Realm::Customer, $ctx), 'key gone after owner delete');
     }
 
     public function testAdminRealmDeleteOwnedRejectsForeignOwner(): void
@@ -133,16 +134,16 @@ final class CredentialRepositoryTest extends TestCase
         $cred = Uuid::randomBytes();
         $this->seed('admin', $ownerA, null, $cred);
 
-        self::assertNull($sut->findOneByCredentialId($cred, Realm::Customer), 'realm boundary: not visible to customer');
+        self::assertNull($sut->findOneByCredentialId($cred, Realm::Customer, $ctx), 'realm boundary: not visible to customer');
 
-        $row = $sut->findOneByCredentialId($cred, Realm::Admin);
+        $row = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
         self::assertNotNull($row);
 
         self::assertFalse($sut->deleteOwned($row->getId(), Realm::Admin, $attackerB, $ctx), 'B cannot delete A key');
-        self::assertNotNull($sut->findOneByCredentialId($cred, Realm::Admin), 'A key survives foreign delete attempt');
+        self::assertNotNull($sut->findOneByCredentialId($cred, Realm::Admin, $ctx), 'A key survives foreign delete attempt');
 
         self::assertTrue($sut->deleteOwned($row->getId(), Realm::Admin, $ownerA, $ctx), 'owner can delete own key');
-        self::assertNull($sut->findOneByCredentialId($cred, Realm::Admin), 'key gone after owner delete');
+        self::assertNull($sut->findOneByCredentialId($cred, Realm::Admin, $ctx), 'key gone after owner delete');
     }
 
     public function testListOwnedIsScopedToOwner(): void

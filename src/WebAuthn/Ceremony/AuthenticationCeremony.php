@@ -80,7 +80,7 @@ final class AuthenticationCeremony
 
         // REALM-SCOPED lookup — this is the realm boundary. A credential from a
         // different realm resolves to null here and the ceremony aborts.
-        $entity = $this->credentials->findOneByCredentialId($credential->rawId, $realm);
+        $entity = $this->credentials->findOneByCredentialId($credential->rawId, $realm, $context);
         if ($entity === null) {
             throw new RuntimeException('Unknown credential for this realm.');
         }

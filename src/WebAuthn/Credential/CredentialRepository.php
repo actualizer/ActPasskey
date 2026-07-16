@@ -18,14 +18,14 @@ final class CredentialRepository
     {
     }
 
-    public function findOneByCredentialId(string $rawCredentialId, Realm $realm): ?PasskeyCredentialEntity
+    public function findOneByCredentialId(string $rawCredentialId, Realm $realm, Context $context): ?PasskeyCredentialEntity
     {
         $criteria = (new Criteria())
             ->addFilter(new EqualsFilter('credentialId', $rawCredentialId))
             ->addFilter(new EqualsFilter('realm', $realm->value))
             ->setLimit(1);
 
-        $entity = $this->credentialRepository->search($criteria, Context::createDefaultContext())->first();
+        $entity = $this->credentialRepository->search($criteria, $context)->first();
 
         return $entity instanceof PasskeyCredentialEntity ? $entity : null;
     }
