@@ -52,6 +52,30 @@ final class CredentialRepositoryTest extends TestCase
         return $customerId;
     }
 
+    /**
+     * `user_id` on act_passkey_credential has a real FK to `user`, so owner ids
+     * used in fixtures must be actual user rows, not bare UUIDs.
+     */
+    private function createAdminUser(): string
+    {
+        $userId = Uuid::randomHex();
+
+        /** @var EntityRepository $userRepository */
+        $userRepository = $this->getContainer()->get('user.repository');
+        $userRepository->create([[
+            'id' => $userId,
+            'localeId' => $this->getLocaleIdOfSystemLanguage(),
+            'username' => Uuid::randomHex(),
+            'password' => TestDefaults::HASHED_PASSWORD,
+            'firstName' => 'Max',
+            'lastName' => 'Mustermann',
+            'email' => Uuid::randomHex() . '@example.test',
+            'admin' => true,
+        ]], Context::createDefaultContext());
+
+        return $userId;
+    }
+
     private function seed(string $realm, ?string $userId, ?string $customerId, string $rawCredId): void
     {
         /** @var EntityRepository $raw */
@@ -98,6 +122,27 @@ final class CredentialRepositoryTest extends TestCase
 
         self::assertTrue($sut->deleteOwned($row->getId(), Realm::Customer, $ownerA, $ctx), 'owner can delete own key');
         self::assertNull($sut->findOneByCredentialId($cred, Realm::Customer), 'key gone after owner delete');
+    }
+
+    public function testAdminRealmDeleteOwnedRejectsForeignOwner(): void
+    {
+        $sut = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $ownerA = $this->createAdminUser();
+        $attackerB = $this->createAdminUser();
+        $cred = Uuid::randomBytes();
+        $this->seed('admin', $ownerA, null, $cred);
+
+        self::assertNull($sut->findOneByCredentialId($cred, Realm::Customer), 'realm boundary: not visible to customer');
+
+        $row = $sut->findOneByCredentialId($cred, Realm::Admin);
+        self::assertNotNull($row);
+
+        self::assertFalse($sut->deleteOwned($row->getId(), Realm::Admin, $attackerB, $ctx), 'B cannot delete A key');
+        self::assertNotNull($sut->findOneByCredentialId($cred, Realm::Admin), 'A key survives foreign delete attempt');
+
+        self::assertTrue($sut->deleteOwned($row->getId(), Realm::Admin, $ownerA, $ctx), 'owner can delete own key');
+        self::assertNull($sut->findOneByCredentialId($cred, Realm::Admin), 'key gone after owner delete');
     }
 
     public function testListOwnedIsScopedToOwner(): void
