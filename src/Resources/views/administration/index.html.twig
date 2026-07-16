@@ -14,7 +14,16 @@
 {% block administration_login_scripts %}
     {{ parent() }}
 
+    {#
+        The URL must match the one /api/_info/config hands to the administration
+        character for character. After login the boot injects a second script tag
+        from that endpoint, and the browser only skips re-evaluating a module if
+        the URL is identical — otherwise every override in this bundle runs twice
+        (a second passkey card on the profile page). Hence the same asset prefix
+        the core applies to those paths, and deliberately no `asset(src)`, whose
+        cache-busting query string would make the two URLs differ.
+    #}
     {% for src in act_passkey_admin_scripts() %}
-        <script type="module" src="{{ asset(src, 'asset') }}" nonce="{{ cspNonce }}"></script>
+        <script type="module" src="{{ asset('', 'asset') ~ src }}" nonce="{{ cspNonce }}"></script>
     {% endfor %}
 {% endblock %}

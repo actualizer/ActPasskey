@@ -86,6 +86,22 @@ Component.override('sw-profile-index-general', {
     },
 
     methods: {
+        // The API sends ISO8601 with an explicit UTC offset; the core date filter
+        // renders it in the timezone from the admin user's profile. Resolving the
+        // filter here rather than at import time is deliberate: this bundle is
+        // also evaluated on the login screen, before the filter registry exists.
+        formatDate(value) {
+            if (!value) {
+                return '';
+            }
+
+            try {
+                return Shopware.Filter.getByName('date')(value);
+            } catch {
+                return value;
+            }
+        },
+
         async loadPasskeys() {
             this.isPasskeyLoading = true;
             try {

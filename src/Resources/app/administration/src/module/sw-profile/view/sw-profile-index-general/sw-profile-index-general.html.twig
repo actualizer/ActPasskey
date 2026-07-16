@@ -15,10 +15,18 @@
                 :showSelection="false"
                 :showActions="true"
             >
+                <template #column-createdAt="{ item }">
+                    {% block act_passkey_profile_card_column_created_at %}
+                    <span class="sw-data-grid__cell-value">
+                        {{ formatDate(item.createdAt) }}
+                    </span>
+                    {% endblock %}
+                </template>
+
                 <template #column-lastUsedAt="{ item }">
                     {% block act_passkey_profile_card_column_last_used_at %}
                     <span class="sw-data-grid__cell-value">
-                        {{ item.lastUsedAt ? item.lastUsedAt : $t('act-passkey.manage.neverUsed') }}
+                        {{ item.lastUsedAt ? formatDate(item.lastUsedAt) : $t('act-passkey.manage.neverUsed') }}
                     </span>
                     {% endblock %}
                 </template>
