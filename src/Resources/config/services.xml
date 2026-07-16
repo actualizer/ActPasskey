@@ -26,5 +26,13 @@
             <argument type="string">%env(APP_URL)%</argument>
             <argument>null</argument>
         </service>
+
+        <!-- Origins are derived ONLY from %APP_URL% + sales_channel_domain.url,
+             NEVER from the request Host header (see OriginAllowlistProvider
+             class doc for the security rationale). -->
+        <service id="Actualize\Passkey\WebAuthn\RelyingParty\OriginAllowlistProvider" public="true">
+            <argument type="string">%APP_URL%</argument>
+            <argument type="service" id="sales_channel_domain.repository"/>
+        </service>
     </services>
 </container>
