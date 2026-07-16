@@ -16,6 +16,15 @@
             <argument type="service" id="act_passkey_user_handle.repository"/>
         </service>
 
+        <!-- Clock service id resolved via `debug:container clock`: `Psr\Clock\ClockInterface`
+             and `Symfony\Component\Clock\ClockInterface` are both private aliases for the
+             `clock` service (Symfony\Component\Clock\Clock). Referencing a private alias as
+             a constructor argument works fine — privacy only blocks direct container->get(). -->
+        <service id="Actualize\Passkey\WebAuthn\Challenge\ChallengeStore" public="true">
+            <argument type="service" id="request_stack"/>
+            <argument type="service" id="Psr\Clock\ClockInterface"/>
+        </service>
+
         <!-- Second argument (broaden-parent) is intentionally `null` for Phase 1: no
              configured RP-ID broadening yet. The bare `<argument>null</argument>` (no
              type attribute) goes through XmlFileLoader's default branch, which calls
