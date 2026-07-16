@@ -15,6 +15,14 @@
                 :showSelection="false"
                 :showActions="true"
             >
+                <template #column-lastUsedAt="{ item }">
+                    {% block act_passkey_profile_card_column_last_used_at %}
+                    <span class="sw-data-grid__cell-value">
+                        {{ item.lastUsedAt ? item.lastUsedAt : $t('act-passkey.manage.neverUsed') }}
+                    </span>
+                    {% endblock %}
+                </template>
+
                 <template #actions="{ item }">
                     {% block act_passkey_profile_card_action_rename %}
                     <sw-context-menu-item @click="onPasskeyRename(item)">

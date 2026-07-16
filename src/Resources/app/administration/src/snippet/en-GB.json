@@ -15,7 +15,9 @@
             "deleteSuccess": "Passkey removed.",
             "error": "The request could not be completed.",
             "columnName": "Name",
-            "columnCreatedAt": "Created at"
+            "columnCreatedAt": "Created at",
+            "columnLastUsedAt": "Last used",
+            "neverUsed": "Never used"
         }
     }
 }

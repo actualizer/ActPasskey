@@ -15,7 +15,9 @@
             "deleteSuccess": "Passkey entfernt.",
             "error": "Die Anfrage konnte nicht abgeschlossen werden.",
             "columnName": "Name",
-            "columnCreatedAt": "Erstellt am"
+            "columnCreatedAt": "Erstellt am",
+            "columnLastUsedAt": "Zuletzt verwendet",
+            "neverUsed": "Nie verwendet"
         }
     }
 }

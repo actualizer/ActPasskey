@@ -68,6 +68,12 @@ Component.override('sw-profile-index-general', {
                     label: this.$t('act-passkey.manage.columnCreatedAt'),
                     allowResize: true,
                 },
+                {
+                    property: 'lastUsedAt',
+                    dataIndex: 'lastUsedAt',
+                    label: this.$t('act-passkey.manage.columnLastUsedAt'),
+                    allowResize: true,
+                },
             ];
         },
     },
