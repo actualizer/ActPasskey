@@ -3,8 +3,16 @@ const ApiService = Shopware.Classes.ApiService;
 /**
  * Admin self-service for the caller's own passkeys. Mutating calls accept an
  * optional `context` (as emitted by `sw-verify-user-modal`'s `verified` event)
- * so the one-shot `user-verified` token is attached to that single request
- * only, instead of mutating global auth state.
+ * and put its `user-verified` token on that request explicitly, rather than
+ * relying on ambient auth state to happen to carry it.
+ *
+ * This is NOT an isolation guarantee: `sw-verify-user-modal` also calls
+ * `loginService.setBearerAuthentication()`, which writes the same elevated
+ * token into the shared auth cookie — so after one password confirmation it
+ * stays the session's ambient token until the next rotation. That is core's
+ * behaviour for every consumer of the modal and cannot be prevented here.
+ * Passing the context explicitly still matters: it keeps a mutation from
+ * silently depending on that side effect.
  */
 class PasskeyApiService extends ApiService {
     constructor(httpClient, loginService, apiEndpoint = 'act-passkey') {
