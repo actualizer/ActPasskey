@@ -129,8 +129,11 @@ class PasskeyManageStoreApiController
         CustomerEntity $customer
     ): Response {
         $this->guard->assertEligible($customer);
-        $this->validatePassword($data, $context);
 
+        // ensureAccepted() before validatePassword(): the password check is a
+        // pass/fail oracle, so it must be rate-limited before it runs, not after —
+        // otherwise a hijacked context token lets an attacker guess the account
+        // password with no throttle at all.
         $rateLimitKey = $customer->getId() . '-' . (string) $request->getClientIp();
 
         try {
@@ -138,6 +141,8 @@ class PasskeyManageStoreApiController
         } catch (RateLimitExceededException $exception) {
             throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
         }
+
+        $this->validatePassword($data, $context);
 
         $response = $data->get('passkey_response');
         $challengeId = $data->get('passkey_challenge_id');
@@ -216,8 +221,9 @@ class PasskeyManageStoreApiController
         CustomerEntity $customer
     ): Response {
         $this->guard->assertEligible($customer);
-        $this->validatePassword($data, $context);
 
+        // ensureAccepted() before validatePassword(): see register() for why the
+        // password check must never run unthrottled.
         $rateLimitKey = $customer->getId() . '-' . (string) $request->getClientIp();
 
         try {
@@ -225,6 +231,8 @@ class PasskeyManageStoreApiController
         } catch (RateLimitExceededException $exception) {
             throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
         }
+
+        $this->validatePassword($data, $context);
 
         // Same as rename: no existence oracle, so the result is not surfaced.
         $this->credentials->deleteOwned($id, Realm::Customer, $customer->getId(), $context->getContext());
@@ -254,10 +262,11 @@ class PasskeyManageStoreApiController
 
     private function displayNameFor(CustomerEntity $customer): string
     {
-        // The `?? ''` guards stay: the getters are natively typed `string`, but the
-        // backing properties are uninitialised until the DAL hydrates them, and this
-        // value is only a cosmetic label — it must never be the reason a request
-        // blows up. PHPStan trusts the native return type, hence the ignore.
+        // The `?? ''` guards stay: they are belt-and-braces against a future
+        // signature change to `?string` (the getters are currently natively typed
+        // `string`, so PHPStan sees the coalesce as dead code today, hence the
+        // ignore), and this value is only a cosmetic label — it must never be the
+        // reason a request blows up.
         /** @phpstan-ignore nullCoalesce.expr, nullCoalesce.expr */
         return trim(($customer->getFirstName() ?? '') . ' ' . ($customer->getLastName() ?? ''));
     }

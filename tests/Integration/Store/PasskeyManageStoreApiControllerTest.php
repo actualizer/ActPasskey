@@ -10,9 +10,11 @@ use Actualize\Passkey\WebAuthn\Credential\Realm;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
+use Shopware\Core\Checkout\Customer\Exception\CustomerNotFoundByIdException;
 use Shopware\Core\Checkout\Customer\Exception\CustomerOptinNotCompletedException;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Routing\RoutingException;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\SalesChannelApiTestBehaviour;
@@ -95,6 +97,16 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
      * double opt-in, so a session may exist for an unconfirmed account. Enrollment
      * must still be refused — and refused by the eligibility guard, not by some
      * incidental ceremony failure, hence the specific exception assertion.
+     *
+     * NOTE: this is a valid end-to-end negative, but NOT a regression lock on the
+     * guard specifically — registerChallenge() also runs the password step-up
+     * (CustomerPasswordMatches -> AccountService::getCustomerByLogin()), which
+     * throws the identical CustomerOptinNotCompletedException for the same
+     * unconfirmed account. This test supplies the correct password and would still
+     * pass if CustomerEligibilityGuard::assertEligible() were deleted entirely. The
+     * guard-specific regression locks are testUnconfirmedDoubleOptInCustomerCannotList
+     * and testUnconfirmedDoubleOptInCustomerCannotRename below, on routes with no
+     * step-up where the guard is the sole defense.
      */
     public function testUnconfirmedDoubleOptInCustomerCannotEnroll(): void
     {
@@ -111,6 +123,64 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
             $context,
             $this->customerOf($context)
         );
+    }
+
+    /**
+     * Regression lock on the guard itself: list() has no password step-up, so
+     * assertEligible() is the ONLY thing that can produce this exception here.
+     */
+    public function testUnconfirmedDoubleOptInCustomerCannotList(): void
+    {
+        $customerId = $this->createCustomerRow([
+            'doubleOptInRegistration' => true,
+            'doubleOptInConfirmDate' => null,
+        ]);
+        $context = $this->createCustomerContext($customerId);
+
+        $this->expectException(CustomerOptinNotCompletedException::class);
+        $this->controller()->list($context, $this->customerOf($context));
+    }
+
+    /**
+     * Regression lock on the guard itself: rename() has no password step-up, so
+     * assertEligible() is the ONLY thing that can produce this exception here.
+     */
+    public function testUnconfirmedDoubleOptInCustomerCannotRename(): void
+    {
+        $customerId = $this->createCustomerRow([
+            'doubleOptInRegistration' => true,
+            'doubleOptInConfirmDate' => null,
+        ]);
+        $context = $this->createCustomerContext($customerId);
+
+        $this->expectException(CustomerOptinNotCompletedException::class);
+        $this->controller()->rename(
+            Uuid::randomHex(),
+            new RequestDataBag(['name' => 'Should not matter']),
+            $context,
+            $this->customerOf($context)
+        );
+    }
+
+    /**
+     * Regression lock on the guard's other branch: list() has no password step-up
+     * and nothing else in the route checks `active`, so assertEligible() is the
+     * ONLY thing that can produce this exception here.
+     *
+     * Note: SalesChannelContextFactory::loadCustomer() itself drops an inactive
+     * customer (returns null instead of the entity), so createCustomerContext() +
+     * customerOf() can't be used to obtain the CustomerEntity here — that path
+     * would never reach the controller at all in production. This test targets the
+     * guard specifically, so the CustomerEntity is loaded directly, exactly like
+     * CustomerValueResolver would hand it to the controller.
+     */
+    public function testInactiveCustomerCannotList(): void
+    {
+        $customerId = $this->createCustomerRow(['active' => false]);
+        $context = $this->createCustomerContext($customerId);
+
+        $this->expectException(CustomerNotFoundByIdException::class);
+        $this->controller()->list($context, $this->customerById($customerId));
     }
 
     public function testRegisterWithoutPasswordIsRejected(): void
@@ -338,6 +408,25 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
     private function customerOf(SalesChannelContext $context): CustomerEntity
     {
         $customer = $context->getCustomer();
+        self::assertInstanceOf(CustomerEntity::class, $customer);
+
+        return $customer;
+    }
+
+    /**
+     * Loads the CustomerEntity directly by id, bypassing
+     * SalesChannelContextFactory::loadCustomer() — which silently drops an
+     * inactive customer instead of returning it. Only used where the test
+     * targets the eligibility guard for a customer the context factory itself
+     * would never resolve.
+     */
+    private function customerById(string $customerId): CustomerEntity
+    {
+        /** @var EntityRepository<CustomerCollection> $customerRepository */
+        $customerRepository = $this->getContainer()->get('customer.repository');
+        $customer = $customerRepository->search(new Criteria([$customerId]), Context::createDefaultContext())
+            ->getEntities()
+            ->first();
         self::assertInstanceOf(CustomerEntity::class, $customer);
 
         return $customer;
