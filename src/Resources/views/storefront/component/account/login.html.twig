@@ -2,14 +2,28 @@
 
 {% block component_account_login_submit %}
     {{ parent() }}
-    <div class="act-passkey-login mt-2"
+    {# The divider lives inside the hidden container on purpose: it may only
+       appear together with the button it separates, never on its own when the
+       browser cannot do WebAuthn. Built from Bootstrap utilities so the plugin
+       needs no stylesheet of its own. #}
+    <div class="act-passkey-login"
          data-act-passkey-login
          data-challenge-url="{{ path('frontend.account.login.passkey.challenge') }}"
          data-login-url="{{ path('frontend.account.login.passkey') }}"
          data-error-text="{{ 'act-passkey.login.error'|trans }}"
          hidden>
+        {% block act_passkey_login_divider %}
+            <div class="act-passkey-login__divider d-flex align-items-center my-3">
+                <hr class="flex-grow-1 my-0">
+                <span class="act-passkey-login__divider-text px-3 text-muted small">
+                    {{ 'act-passkey.login.divider'|trans }}
+                </span>
+                <hr class="flex-grow-1 my-0">
+            </div>
+        {% endblock %}
+
         <button type="button"
-                class="btn btn-secondary btn-block act-passkey-login__button"
+                class="btn btn-outline-primary btn-block act-passkey-login__button"
                 data-act-passkey-login-button>
             {{ 'act-passkey.login.button'|trans }}
         </button>

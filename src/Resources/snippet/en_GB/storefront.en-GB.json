@@ -2,6 +2,7 @@
     "act-passkey": {
         "login": {
             "button": "Sign in with a passkey",
+            "divider": "or",
             "error": "Passkey sign-in failed."
         },
         "manage": {
