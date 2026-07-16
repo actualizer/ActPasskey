@@ -162,6 +162,10 @@ final class CeremonyRoundTripTest extends TestCase
         );
 
         self::assertSame($accountId, $resolved);
+
+        /** @var array{id: string} $decodedAssertion */
+        $decodedAssertion = json_decode($assertion, true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame($first, $decodedAssertion['id']);
     }
 
     public function testCreateOptionsCarriesTheHumanReadableDisplayName(): void

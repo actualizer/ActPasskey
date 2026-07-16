@@ -111,7 +111,6 @@ final class SoftwareAuthenticator
         }
         $credentialIdB64u = $handle;
         $entry = self::$registry[$credentialIdB64u];
-        $credentialId = self::b64uDecode($credentialIdB64u);
 
         $flags = 0x01 | 0x04; // UP | UV
         $authData = hash('sha256', $rpId, true)
