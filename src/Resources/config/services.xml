@@ -100,6 +100,19 @@
             <tag name="controller.service_arguments"/>
         </service>
 
+        <!-- Storefront passkey login (challenge + login, both frontend-scope):
+             mirrors PasskeyStoreApiController's verify step directly so the
+             login page can fetch a challenge and post the assertion
+             same-origin, then redirect into the account area. -->
+        <service id="Actualize\Passkey\Controller\Storefront\PasskeyStorefrontController" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
+            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\AccountService"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+            <tag name="controller.service_arguments"/>
+        </service>
+
         <service id="Actualize\Passkey\OAuth\PasskeyGrant">
             <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
