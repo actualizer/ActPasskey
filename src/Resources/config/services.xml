@@ -7,5 +7,9 @@
         <service id="Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialDefinition">
             <tag name="shopware.entity.definition" entity="act_passkey_credential"/>
         </service>
+
+        <service id="Actualize\Passkey\Entity\PasskeyUserHandle\PasskeyUserHandleDefinition">
+            <tag name="shopware.entity.definition" entity="act_passkey_user_handle"/>
+        </service>
     </services>
 </container>
