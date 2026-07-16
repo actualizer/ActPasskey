@@ -1,0 +1,201 @@
+<?php declare(strict_types=1);
+
+namespace Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony;
+
+use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
+use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
+use Actualize\Passkey\WebAuthn\Credential\Realm;
+use PHPUnit\Framework\TestCase;
+use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
+use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\Test\TestDefaults;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
+use Webauthn\Exception\AuthenticatorResponseVerificationException;
+use Webauthn\Exception\CounterException;
+
+final class CeremonyRoundTripTest extends TestCase
+{
+    use IntegrationTestBehaviour;
+
+    private string $host;
+
+    private string $origin;
+
+    protected function setUp(): void
+    {
+        SoftwareAuthenticator::reset();
+
+        // In APP_ENV=test, %APP_URL% = http://127.0.0.1:8000 (host 127.0.0.1).
+        // Derive host + origin from the container parameter so the test stays
+        // robust against env changes.
+        $appUrl = (string) $this->getContainer()->getParameter('APP_URL');
+        $this->host = (string) parse_url($appUrl, PHP_URL_HOST);
+        $this->origin = rtrim($appUrl, '/');
+
+        // ChallengeStore is session-bound; push a request carrying a session.
+        $request = new Request();
+        $request->setSession(new Session(new MockArraySessionStorage()));
+        $this->getContainer()->get('request_stack')->push($request);
+    }
+
+    public function testRegisterThenAuthenticateResolvesSameAccount(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        $create = $reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx);
+        $attJson = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin);
+        $reg->verify(Realm::Admin, $accountId, $attJson, $create['challengeId'], $this->host, 'Test Key', $ctx);
+
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+        $resolved = $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx);
+
+        self::assertSame($accountId, $resolved);
+    }
+
+    public function testCustomerRealmRoundTrip(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createCustomer();
+
+        $create = $reg->createOptions(Realm::Customer, $accountId, $this->host, $ctx);
+        $attJson = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin);
+        $reg->verify(Realm::Customer, $accountId, $attJson, $create['challengeId'], $this->host, 'Test Key', $ctx);
+
+        $req = $auth->createOptions(Realm::Customer, $this->host, $ctx);
+        $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+        $resolved = $auth->verify(Realm::Customer, $asgJson, $req['challengeId'], $this->host, $ctx);
+
+        self::assertSame($accountId, $resolved);
+    }
+
+    public function testCustomerCredentialRejectedAtAdminRealm(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer();
+
+        $create = $reg->createOptions(Realm::Customer, $customerId, $this->host, $ctx);
+        $attJson = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin);
+        $reg->verify(Realm::Customer, $customerId, $attJson, $create['challengeId'], $this->host, 'Test Key', $ctx);
+
+        // Present the CUSTOMER credential's assertion at the ADMIN realm. The
+        // realm-scoped lookup returns null, so verification must abort.
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+
+        $this->expectException(\RuntimeException::class);
+        $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx);
+    }
+
+    public function testCounterRegressionRejected(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        $create = $reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx);
+        $attJson = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin);
+        $reg->verify(Realm::Admin, $accountId, $attJson, $create['challengeId'], $this->host, 'Test Key', $ctx);
+
+        // First auth advances the stored counter to 5.
+        $req1 = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $asg1 = SoftwareAuthenticator::respondToGet($req1['options'], $this->origin, 5);
+        self::assertSame($accountId, $auth->verify(Realm::Admin, $asg1, $req1['challengeId'], $this->host, $ctx));
+
+        // Replay with a non-increasing counter -> library CheckCounter throws.
+        $req2 = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $asg2 = SoftwareAuthenticator::respondToGet($req2['options'], $this->origin, 5);
+
+        $this->expectException(CounterException::class);
+        $auth->verify(Realm::Admin, $asg2, $req2['challengeId'], $this->host, $ctx);
+    }
+
+    public function testWrongOriginRejected(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        $create = $reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx);
+        $attJson = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin);
+        $reg->verify(Realm::Admin, $accountId, $attJson, $create['challengeId'], $this->host, 'Test Key', $ctx);
+
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $asgJson = SoftwareAuthenticator::respondToGet($req['options'], 'https://evil.test');
+
+        $this->expectException(AuthenticatorResponseVerificationException::class);
+        $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx);
+    }
+
+    /**
+     * `customer_id` has a real FK to `customer`, so owner ids must be real rows.
+     */
+    private function createCustomer(): string
+    {
+        $customerId = Uuid::randomHex();
+        $addressId = Uuid::randomHex();
+
+        /** @var EntityRepository $customerRepository */
+        $customerRepository = $this->getContainer()->get('customer.repository');
+        $customerRepository->create([[
+            'id' => $customerId,
+            'salesChannelId' => TestDefaults::SALES_CHANNEL,
+            'defaultShippingAddress' => [
+                'id' => $addressId,
+                'firstName' => 'Max',
+                'lastName' => 'Mustermann',
+                'street' => 'Musterstraße 1',
+                'city' => 'Schöppingen',
+                'zipcode' => '12345',
+                'salutationId' => $this->getValidSalutationId(),
+                'countryId' => $this->getValidCountryId(),
+            ],
+            'defaultBillingAddressId' => $addressId,
+            'groupId' => TestDefaults::FALLBACK_CUSTOMER_GROUP,
+            'email' => Uuid::randomHex() . '@example.test',
+            'password' => TestDefaults::HASHED_PASSWORD,
+            'firstName' => 'Max',
+            'lastName' => 'Mustermann',
+            'salutationId' => $this->getValidSalutationId(),
+            'customerNumber' => Uuid::randomHex(),
+        ]], Context::createDefaultContext());
+
+        return $customerId;
+    }
+
+    /**
+     * `user_id` has a real FK to `user`, so owner ids must be real rows.
+     */
+    private function createAdminUser(): string
+    {
+        $userId = Uuid::randomHex();
+
+        /** @var EntityRepository $userRepository */
+        $userRepository = $this->getContainer()->get('user.repository');
+        $userRepository->create([[
+            'id' => $userId,
+            'localeId' => $this->getLocaleIdOfSystemLanguage(),
+            'username' => Uuid::randomHex(),
+            'password' => TestDefaults::HASHED_PASSWORD,
+            'firstName' => 'Max',
+            'lastName' => 'Mustermann',
+            'email' => Uuid::randomHex() . '@example.test',
+            'admin' => true,
+        ]], Context::createDefaultContext());
+
+        return $userId;
+    }
+}

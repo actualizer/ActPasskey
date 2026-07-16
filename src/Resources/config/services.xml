@@ -56,5 +56,30 @@
         <service id="Actualize\Passkey\WebAuthn\Ceremony\CeremonyFactory" public="true">
             <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\OriginAllowlistProvider"/>
         </service>
+
+        <!-- Builds the webauthn-lib serializer once (none-attestation only). -->
+        <service id="Actualize\Passkey\WebAuthn\Ceremony\WebauthnSerializer" public="true"/>
+
+        <!-- Registration ("attestation") ceremony: builds creation options and
+             verifies the browser attestation via the real webauthn-lib validator. -->
+        <service id="Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\CeremonyFactory"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Challenge\ChallengeStore"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\UserHandleProvider"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\WebauthnSerializer"/>
+        </service>
+
+        <!-- Authentication ("assertion") ceremony: usernameless request options,
+             realm-scoped credential lookup, account id resolved from the stored
+             row (never from the assertion userHandle). -->
+        <service id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\CeremonyFactory"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Challenge\ChallengeStore"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\WebauthnSerializer"/>
+        </service>
     </services>
 </container>
