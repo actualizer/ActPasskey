@@ -1,0 +1,20 @@
+{% sw_extends '@Storefront/storefront/component/account/login.html.twig' %}
+
+{% block component_account_login_submit %}
+    {{ parent() }}
+    <div class="act-passkey-login mt-2"
+         data-act-passkey-login
+         data-challenge-url="{{ path('frontend.account.login.passkey.challenge') }}"
+         data-login-url="{{ path('frontend.account.login.passkey') }}"
+         data-error-text="{{ 'act-passkey.login.error'|trans }}"
+         hidden>
+        <button type="button"
+                class="btn btn-secondary btn-block act-passkey-login__button"
+                data-act-passkey-login-button>
+            {{ 'act-passkey.login.button'|trans }}
+        </button>
+        <div class="act-passkey-login__error alert alert-danger mt-2"
+             data-act-passkey-login-error
+             hidden></div>
+    </div>
+{% endblock %}
