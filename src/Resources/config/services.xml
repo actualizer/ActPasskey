@@ -84,6 +84,13 @@
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\WebauthnSerializer"/>
         </service>
 
+        <!-- Public login-challenge endpoint (auth_required=false). Plain public
+             service: the controller does not extend AbstractController, so no
+             setContainer call is needed. -->
+        <service id="Actualize\Passkey\Controller\Admin\PasskeyAdminChallengeController" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
+        </service>
+
         <service id="Actualize\Passkey\OAuth\PasskeyGrant">
             <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
