@@ -6,6 +6,7 @@ use Shopware\Core\Checkout\Customer\CustomerDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\BlobField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\CreatedAtField;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\DateTimeField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\FkField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\PrimaryKey;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Required;
@@ -58,6 +59,7 @@ class PasskeyCredentialDefinition extends EntityDefinition
             new StringField('aaguid', 'aaguid'),
             new JsonField('transports', 'transports'),
             new StringField('name', 'name'),
+            new DateTimeField('last_used_at', 'lastUsedAt'),
 
             new CreatedAtField(),
             new UpdatedAtField(),

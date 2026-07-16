@@ -4,6 +4,7 @@ namespace Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony;
 
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
@@ -189,6 +190,31 @@ final class CeremonyRoundTripTest extends TestCase
         self::assertSame('Ada Lovelace', $options['user']['displayName']);
         // The user handle must stay opaque random bytes — never the email/name.
         self::assertNotSame('ada@example.com', $options['user']['id']);
+    }
+
+    public function testSuccessfulAssertionStampsLastUsedAt(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $credentials = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        $create = $reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx);
+        $attJson = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin);
+        $reg->verify(Realm::Admin, $accountId, $attJson, $create['challengeId'], $this->host, 'Test Key', $ctx);
+
+        $enrolled = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first();
+        self::assertNotNull($enrolled);
+        self::assertNull($enrolled->getLastUsedAt(), 'registration must not stamp last_used_at');
+
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+        $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx);
+
+        $afterAssertion = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first();
+        self::assertNotNull($afterAssertion);
+        self::assertNotNull($afterAssertion->getLastUsedAt(), 'successful assertion must stamp last_used_at');
     }
 
     /**

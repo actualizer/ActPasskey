@@ -97,7 +97,8 @@ final class AuthenticationCeremony
         $this->credentials->updateSignCount(
             $entity->getId(),
             $response->authenticatorData->signCount,
-            $context
+            $context,
+            new \DateTimeImmutable()
         );
 
         // Owner comes from the stored row, NOT from the assertion's userHandle.

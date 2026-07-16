@@ -58,6 +58,7 @@ class PasskeyAdminManageController
                 'aaguid' => $credential->getAaguid(),
                 'transports' => $credential->getTransports(),
                 'createdAt' => $credential->getCreatedAt()?->format(\DATE_ATOM),
+                'lastUsedAt' => $credential->getLastUsedAt()?->format(\DATE_ATOM),
             ];
         }
 

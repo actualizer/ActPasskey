@@ -38,9 +38,18 @@ final class CredentialRepository
         $this->credentialRepository->upsert([$data], $context);
     }
 
-    public function updateSignCount(string $id, int $signCount, Context $context): void
-    {
-        $this->credentialRepository->update([['id' => $id, 'signCount' => $signCount]], $context);
+    public function updateSignCount(
+        string $id,
+        int $signCount,
+        Context $context,
+        ?\DateTimeInterface $lastUsedAt = null
+    ): void {
+        $payload = ['id' => $id, 'signCount' => $signCount];
+        if ($lastUsedAt !== null) {
+            $payload['lastUsedAt'] = $lastUsedAt;
+        }
+
+        $this->credentialRepository->update([$payload], $context);
     }
 
     /**

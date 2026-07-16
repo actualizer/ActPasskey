@@ -33,6 +33,8 @@ class PasskeyCredentialEntity extends Entity
 
     protected ?string $name = null;
 
+    protected ?\DateTimeInterface $lastUsedAt = null;
+
     public function getRealm(): string
     {
         return $this->realm;
@@ -157,5 +159,15 @@ class PasskeyCredentialEntity extends Entity
     public function setName(?string $name): void
     {
         $this->name = $name;
+    }
+
+    public function getLastUsedAt(): ?\DateTimeInterface
+    {
+        return $this->lastUsedAt;
+    }
+
+    public function setLastUsedAt(?\DateTimeInterface $lastUsedAt): void
+    {
+        $this->lastUsedAt = $lastUsedAt;
     }
 }

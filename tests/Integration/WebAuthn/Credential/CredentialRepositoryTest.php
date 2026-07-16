@@ -214,4 +214,55 @@ final class CredentialRepositoryTest extends TestCase
         self::assertNotNull($entity);
         self::assertSame('n', $entity->getName());
     }
+
+    public function testUpdateSignCountAlsoStampsLastUsedAtWhenGiven(): void
+    {
+        $sut = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $ownerA = $this->createAdminUser();
+        $cred = Uuid::randomBytes();
+        $this->seed('admin', $ownerA, null, $cred);
+
+        $row = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
+        self::assertNotNull($row);
+        self::assertNull($row->getLastUsedAt(), 'freshly seeded credential has no last-used stamp');
+
+        $stamp = new \DateTimeImmutable('2024-06-01T12:00:00+00:00');
+        $sut->updateSignCount($row->getId(), 5, $ctx, $stamp);
+
+        $updated = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
+        self::assertNotNull($updated);
+        self::assertSame(5, $updated->getSignCount());
+        self::assertNotNull($updated->getLastUsedAt());
+        self::assertSame($stamp->getTimestamp(), $updated->getLastUsedAt()->getTimestamp());
+    }
+
+    public function testUpdateSignCountLeavesLastUsedAtUntouchedWhenNotGiven(): void
+    {
+        $sut = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $ownerA = $this->createAdminUser();
+        $cred = Uuid::randomBytes();
+        $this->seed('admin', $ownerA, null, $cred);
+
+        $row = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
+        self::assertNotNull($row);
+
+        // Set an initial stamp via the 4-arg form.
+        $stamp = new \DateTimeImmutable('2024-06-01T12:00:00+00:00');
+        $sut->updateSignCount($row->getId(), 3, $ctx, $stamp);
+
+        $withStamp = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
+        self::assertNotNull($withStamp);
+        self::assertNotNull($withStamp->getLastUsedAt());
+
+        // The existing 3-arg form must not clobber the column with null.
+        $sut->updateSignCount($row->getId(), 4, $ctx);
+
+        $unchanged = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
+        self::assertNotNull($unchanged);
+        self::assertSame(4, $unchanged->getSignCount());
+        self::assertNotNull($unchanged->getLastUsedAt());
+        self::assertSame($stamp->getTimestamp(), $unchanged->getLastUsedAt()->getTimestamp());
+    }
 }
