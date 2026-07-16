@@ -75,8 +75,11 @@ final class RegistrationCeremony
 
         // Reconstruct the options with the SAME challenge that was issued and
         // just consumed, so CheckChallenge compares against the exact value.
-        // displayName/userName must also match createOptions() exactly, since
-        // they are part of the signed options too.
+        // Only the challenge, origin and rpId hash are actually compared here:
+        // the signed clientDataJSON carries type/challenge/origin/crossOrigin,
+        // and no ceremony step reads the user entity's name/displayName (only
+        // its id, i.e. the random user handle). Passing them keeps the rebuilt
+        // options faithful, but they cannot make verification pass or fail.
         $options = $this->buildOptions($realm, $accountId, $host, $challenge, $context, $displayName, $userName);
 
         $credential = $this->serializer->deserializeCredential($rawResponseJson);

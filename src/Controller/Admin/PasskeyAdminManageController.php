@@ -118,8 +118,9 @@ class PasskeyAdminManageController
             throw new AccessDeniedHttpException('Passkey registration failed');
         }
 
-        // displayName/userName must be the SAME values the matching
-        // register-challenge call used — they are part of the signed options.
+        // displayName/userName only label the credential in the browser's
+        // passkey manager; they are not part of what the assertion signs, so
+        // they cannot affect whether verification succeeds.
         $this->registrationCeremony->verify(
             Realm::Admin,
             $userId,
