@@ -8,6 +8,7 @@ use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use PHPUnit\Framework\TestCase;
+use Shopware\Core\Checkout\Customer\CustomerException;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
@@ -86,6 +87,44 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
         $controller->login($request, $requestDataBag, $salesChannelContext);
     }
 
+    public function testUnconfirmedDoubleOptInCustomerCannotLoginWithPasskey(): void
+    {
+        $controller = $this->getContainer()->get(PasskeyStoreApiController::class);
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer([
+            'doubleOptInRegistration' => true,
+            'doubleOptInConfirmDate' => null,
+        ]);
+
+        $this->registerPasskey(Realm::Customer, $customerId, $ctx);
+
+        $salesChannelContext = $this->createStorefrontContext();
+        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx);
+        $request = $this->buildHostRequest();
+
+        // On the store-api route, the eligibility guard's CustomerException
+        // propagates unwrapped (same as a rejected password login) — only the
+        // storefront controller catches it and turns it into a loginError forward.
+        $this->expectException(CustomerException::class);
+        $controller->login($request, $requestDataBag, $salesChannelContext);
+    }
+
+    public function testInactiveCustomerCannotLoginWithPasskey(): void
+    {
+        $controller = $this->getContainer()->get(PasskeyStoreApiController::class);
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer(['active' => false]);
+
+        $this->registerPasskey(Realm::Customer, $customerId, $ctx);
+
+        $salesChannelContext = $this->createStorefrontContext();
+        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx);
+        $request = $this->buildHostRequest();
+
+        $this->expectException(CustomerException::class);
+        $controller->login($request, $requestDataBag, $salesChannelContext);
+    }
+
     public function testBogusChallengeIdIsRejected(): void
     {
         $controller = $this->getContainer()->get(PasskeyStoreApiController::class);
@@ -151,15 +190,19 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
      * `active` (required for AccountService::loginById -> fetchCustomer to
      * accept it) and `boundSalesChannelId=null` (unbound, so it resolves
      * under the storefront sales-channel context built for the login call).
+     *
+     * @param array<string, mixed> $overrides merged over the default row,
+     *     e.g. `['active' => false]` or the double-opt-in columns, so
+     *     eligibility-guard tests can build a non-eligible customer.
      */
-    private function createCustomer(): string
+    private function createCustomer(array $overrides = []): string
     {
         $customerId = Uuid::randomHex();
         $addressId = Uuid::randomHex();
 
         /** @var EntityRepository $customerRepository */
         $customerRepository = $this->getContainer()->get('customer.repository');
-        $customerRepository->create([[
+        $customerRepository->create([array_merge([
             'id' => $customerId,
             'active' => true,
             'boundSalesChannelId' => null,
@@ -182,7 +225,7 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
             'lastName' => 'Mustermann',
             'salutationId' => $this->getValidSalutationId(),
             'customerNumber' => Uuid::randomHex(),
-        ]], Context::createDefaultContext());
+        ], $overrides)], Context::createDefaultContext());
 
         return $customerId;
     }

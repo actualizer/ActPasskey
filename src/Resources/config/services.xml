@@ -91,22 +91,33 @@
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
         </service>
 
+        <service id="Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard" public="true"/>
+
+        <!-- Shared verify -> eligibility -> loginById. Both customer login entry points
+             MUST go through this so the account checks cannot drift apart. -->
+        <service id="Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard"/>
+            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\AccountService"/>
+            <argument type="service" id="customer.repository"/>
+        </service>
+
         <!-- Store-api passkey login (challenge + login, both pre-login /
              auth_required=false): verifies a CUSTOMER-realm assertion and
-             establishes the session via AccountService::loginById. -->
+             establishes the session via CustomerPasskeyLoginService. -->
         <service id="Actualize\Passkey\Controller\Store\PasskeyStoreApiController" public="true">
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
-            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\AccountService"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService"/>
             <tag name="controller.service_arguments"/>
         </service>
 
         <!-- Storefront passkey login (challenge + login, both frontend-scope):
-             mirrors PasskeyStoreApiController's verify step directly so the
-             login page can fetch a challenge and post the assertion
+             shares CustomerPasskeyLoginService with PasskeyStoreApiController so
+             the login page can fetch a challenge and post the assertion
              same-origin, then redirect into the account area. -->
         <service id="Actualize\Passkey\Controller\Storefront\PasskeyStorefrontController" public="true">
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
-            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\AccountService"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>

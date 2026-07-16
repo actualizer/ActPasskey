@@ -4,7 +4,7 @@ namespace Actualize\Passkey\Controller\Storefront;
 
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
-use Shopware\Core\Checkout\Customer\SalesChannel\AccountService;
+use Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Storefront\Controller\StorefrontController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,17 +16,18 @@ use Symfony\Component\Routing\Attribute\Route;
  * Storefront passkey login: hands out a usernameless WebAuthn request-options
  * payload (challenge) and, after the browser responds, verifies the assertion
  * at the CUSTOMER realm and establishes the session via
- * AccountService::loginById (no password check — the passkey assertion IS
+ * CustomerPasskeyLoginService (no password check — the passkey assertion IS
  * the credential), same-origin, so the login page can redirect straight into
- * the account area. Mirrors PasskeyStoreApiController's verify step directly
- * (no controller-to-controller call) rather than sharing a service.
+ * the account area. Shares the login service with PasskeyStoreApiController
+ * so the account eligibility checks cannot drift apart between the two entry
+ * points.
  */
 #[Route(defaults: ['_routeScope' => ['storefront']])]
 class PasskeyStorefrontController extends StorefrontController
 {
     public function __construct(
         private readonly AuthenticationCeremony $authenticationCeremony,
-        private readonly AccountService $accountService,
+        private readonly CustomerPasskeyLoginService $loginService,
     ) {
     }
 
@@ -48,18 +49,11 @@ class PasskeyStorefrontController extends StorefrontController
         }
 
         try {
-            $customerId = $this->authenticationCeremony->verify(
-                Realm::Customer,
-                $response,
-                $challengeId,
-                $request->getHost(),
-                $context->getContext()
-            );
-            $this->accountService->loginById($customerId, $context);
+            $this->loginService->login($response, $challengeId, $request->getHost(), $context);
         } catch (\Throwable) {
-            // Catch broadly, incl. Webauthn CounterException (does not extend the
-            // verification exception in webauthn-lib 5.3.5) — never leak a 500 for
-            // a failed authentication attempt.
+            // Catch broadly, incl. a rejected CustomerEligibilityGuard check
+            // (e.g. unconfirmed double opt-in) — never leak a 500 for a failed
+            // or disallowed login attempt.
             return $this->forwardToRoute('frontend.account.login.page', ['loginError' => true], []);
         }
 

@@ -4,7 +4,7 @@ namespace Actualize\Passkey\Controller\Store;
 
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
-use Shopware\Core\Checkout\Customer\SalesChannel\AccountService;
+use Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\System\SalesChannel\ContextTokenResponse;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -25,7 +25,7 @@ class PasskeyStoreApiController
 {
     public function __construct(
         private readonly AuthenticationCeremony $authenticationCeremony,
-        private readonly AccountService $accountService,
+        private readonly CustomerPasskeyLoginService $loginService,
     ) {
     }
 
@@ -46,22 +46,7 @@ class PasskeyStoreApiController
             throw new UnauthorizedHttpException('', 'Passkey authentication failed');
         }
 
-        try {
-            $customerId = $this->authenticationCeremony->verify(
-                Realm::Customer,
-                $response,
-                $challengeId,
-                $request->getHost(),
-                $context->getContext()
-            );
-        } catch (\Throwable) {
-            // Catch broadly, incl. Webauthn CounterException (does not extend the
-            // verification exception in webauthn-lib 5.3.5) — never leak a 500 for
-            // a failed authentication attempt.
-            throw new UnauthorizedHttpException('', 'Passkey authentication failed');
-        }
-
-        $token = $this->accountService->loginById($customerId, $context);
+        $token = $this->loginService->login($response, $challengeId, $request->getHost(), $context);
 
         return new ContextTokenResponse($token);
     }
