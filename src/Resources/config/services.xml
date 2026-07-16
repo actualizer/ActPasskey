@@ -120,6 +120,19 @@
             <tag name="controller.service_arguments"/>
         </service>
 
+        <!-- Customer passkey self-service (list/register/rename/delete). Every route
+             is `_loginRequired` + CustomerEntity (self-enforcing, guests rejected),
+             re-runs the eligibility guard and demands a password step-up on the
+             auth-factor-changing routes. -->
+        <service id="Actualize\Passkey\Controller\Store\PasskeyManageStoreApiController" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard"/>
+            <argument type="service" id="Shopware\Core\Framework\Validation\DataValidator"/>
+            <argument type="service" id="Shopware\Core\Framework\RateLimiter\RateLimiter"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
         <!-- Storefront passkey login (challenge + login, both frontend-scope):
              shares CustomerPasskeyLoginService with PasskeyStoreApiController so
              the login page can fetch a challenge and post the assertion
