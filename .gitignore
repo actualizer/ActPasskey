@@ -1,2 +1,2 @@
-.phpunit.cache/
-.phpunit.result.cache
+/src/Resources/public/
+/.phpunit.cache/
