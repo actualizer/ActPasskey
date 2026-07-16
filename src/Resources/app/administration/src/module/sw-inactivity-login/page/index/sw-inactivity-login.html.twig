@@ -27,9 +27,15 @@
             :label="$t('sw-login.index.labelKeepLoggedIn')"
         />
 
+        {# The modal body is a plain block container without gap, so every child
+           brings its own spacing — the password field above uses the same
+           --scale-size-32 rhythm. The margin sits inline rather than in a
+           stylesheet because this screen only ever receives our JS bundle: a
+           plugin stylesheet is not loaded while logged out. #}
         {% block act_passkey_inactivity_login_submit %}
             <mt-button
                 class="act-passkey-inactivity-login__button"
+                style="margin-top: var(--scale-size-32);"
                 variant="secondary"
                 size="default"
                 :block="true"
