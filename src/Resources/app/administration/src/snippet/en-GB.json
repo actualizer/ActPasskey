@@ -1,9 +1,11 @@
 {
-    "act-passkey": {
-        "login": {
+    "sw-login": {
+        "act-passkey": {
             "button": "Sign in with a passkey",
             "error": "Passkey sign-in failed."
-        },
+        }
+    },
+    "act-passkey": {
         "manage": {
             "title": "Passkeys",
             "register": "Register new passkey",

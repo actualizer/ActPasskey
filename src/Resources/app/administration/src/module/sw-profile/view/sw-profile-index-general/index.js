@@ -6,7 +6,7 @@ import enGB from '../../../../snippet/en-GB.json';
 Shopware.Locale.extend('de-DE', deDE);
 Shopware.Locale.extend('en-GB', enGB);
 
-const { Component, Mixin } = Shopware;
+const { Component } = Shopware;
 
 // Same base64url <-> ArrayBuffer conversion as init/passkey-login-service.init.js,
 // duplicated locally rather than shared: registration also needs to encode the
@@ -36,9 +36,12 @@ Component.override('sw-profile-index-general', {
 
     inject: ['passkeyApiService'],
 
-    mixins: [
-        Mixin.getByName('notification'),
-    ],
+    // Mixin by name, not by Mixin.getByName(): this bundle is loaded on the
+    // login screen, where it is evaluated before `src/app/main` has registered
+    // any mixin, so a lookup at import time throws. The name is resolved when
+    // the component is built (long after boot). Reading a core registry at
+    // import time is what breaks here — writing to one is fine.
+    mixins: ['notification'],
 
     data() {
         return {

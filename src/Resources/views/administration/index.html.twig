@@ -1,0 +1,20 @@
+{% sw_extends '@Administration/administration/index.html.twig' %}
+
+{#
+    The administration loads plugin bundles from /api/_info/config, which
+    answers 401 before login — so a passkey button registered from the plugin
+    bundle can never reach the login screen. This block is the core's dedicated
+    (and otherwise unused) extension point for exactly that case: it renders
+    server-side, needs no API auth, and sits after the administration bundle but
+    before Shopware.Application.start(), so the Component.override() lands in the
+    registry in time.
+
+    parent() keeps whatever another plugin may already have put in this block.
+#}
+{% block administration_login_scripts %}
+    {{ parent() }}
+
+    {% for src in act_passkey_admin_scripts() %}
+        <script type="module" src="{{ asset(src, 'asset') }}" nonce="{{ cspNonce }}"></script>
+    {% endfor %}
+{% endblock %}

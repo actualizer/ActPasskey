@@ -1,17 +1,23 @@
-{% block sw_login_login_submit %}
+{#
+    Extends the inner button block, not `sw_login_login_submit`: the outer block
+    renders the `.sw-login__submit` flex container itself, so anything appended
+    after it becomes a sibling with no spacing. Inside, the button is a child of
+    that container and inherits its `gap` — including the media query that widens
+    the gap on narrow screens. No own CSS needed, which also keeps the login
+    screen free of a stylesheet the plugin would have to deliver pre-auth.
+#}
+{% block sw_login_login_submit_button %}
     {% parent() %}
 
     {% block act_passkey_login_submit %}
-        <div class="act-passkey-login">
-            <mt-button
-                class="act-passkey-login__button"
-                variant="secondary"
-                size="default"
-                :block="true"
-                @click.prevent="onPasskeyLogin"
-            >
-                {{ $t('act-passkey.login.button') }}
-            </mt-button>
-        </div>
+        <mt-button
+            class="act-passkey-login__button"
+            variant="secondary"
+            size="default"
+            :block="true"
+            @click.prevent="onPasskeyLogin"
+        >
+            {{ $t('sw-login.act-passkey.button') }}
+        </mt-button>
     {% endblock %}
 {% endblock %}

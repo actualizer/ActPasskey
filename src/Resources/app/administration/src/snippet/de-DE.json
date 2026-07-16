@@ -1,9 +1,11 @@
 {
-    "act-passkey": {
-        "login": {
+    "sw-login": {
+        "act-passkey": {
             "button": "Anmeldung mit einem Passkey",
             "error": "Passkey-Anmeldung fehlgeschlagen."
-        },
+        }
+    },
+    "act-passkey": {
         "manage": {
             "title": "Passkeys",
             "register": "Passkey hinzufügen",

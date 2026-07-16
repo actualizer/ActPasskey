@@ -1,3 +1,10 @@
+/**
+ * The two snippets used here live under the `sw-login` namespace instead of
+ * `act-passkey`, because the login screen is unauthenticated: the snippet
+ * endpoint drops every namespace outside of `sw-login` and `global` while no
+ * valid token exists, so an `act-passkey.*` key would render as a raw key.
+ * Everything shown after login stays in our own namespace.
+ */
 import template from './sw-login-login.html.twig';
 
 import deDE from '../../../../snippet/de-DE.json';
@@ -31,7 +38,7 @@ Component.override('sw-login-login', {
             } catch {
                 this.passkeyError = true;
                 this.createNotificationError({
-                    message: this.$t('act-passkey.login.error'),
+                    message: this.$t('sw-login.act-passkey.error'),
                 });
                 this.$emit('is-not-loading');
             }
