@@ -39,11 +39,17 @@ final class RegistrationCeremony
     /**
      * @return array{options: string, challengeId: string}
      */
-    public function createOptions(Realm $realm, string $accountId, string $host, Context $context): array
-    {
+    public function createOptions(
+        Realm $realm,
+        string $accountId,
+        string $host,
+        Context $context,
+        string $displayName = '',
+        string $userName = ''
+    ): array {
         $challenge = random_bytes(32);
         $challengeId = $this->challengeStore->issue($challenge);
-        $options = $this->buildOptions($realm, $accountId, $host, $challenge, $context);
+        $options = $this->buildOptions($realm, $accountId, $host, $challenge, $context, $displayName, $userName);
 
         return [
             'options' => $this->serializer->serializeOptions($options),
@@ -58,7 +64,9 @@ final class RegistrationCeremony
         string $challengeId,
         string $host,
         string $name,
-        Context $context
+        Context $context,
+        string $displayName = '',
+        string $userName = ''
     ): void {
         $challenge = $this->challengeStore->consume($challengeId);
         if ($challenge === null) {
@@ -67,7 +75,9 @@ final class RegistrationCeremony
 
         // Reconstruct the options with the SAME challenge that was issued and
         // just consumed, so CheckChallenge compares against the exact value.
-        $options = $this->buildOptions($realm, $accountId, $host, $challenge, $context);
+        // displayName/userName must also match createOptions() exactly, since
+        // they are part of the signed options too.
+        $options = $this->buildOptions($realm, $accountId, $host, $challenge, $context, $displayName, $userName);
 
         $credential = $this->serializer->deserializeCredential($rawResponseJson);
         $response = $credential->response;
@@ -100,14 +110,22 @@ final class RegistrationCeremony
         string $accountId,
         string $host,
         string $challenge,
-        Context $context
+        Context $context,
+        string $displayName = '',
+        string $userName = ''
     ): PublicKeyCredentialCreationOptions {
         $rpId = $this->rpIdResolver->resolve($host);
         $userHandle = $this->userHandles->getOrCreate($realm, $accountId, $context);
 
+        // name/displayName are what the browser's passkey manager shows the user.
+        // They fall back to the account id only when a caller supplies nothing.
+        // The user handle stays random bytes and never carries these values (spec §8).
+        $userName = $userName !== '' ? $userName : $accountId;
+        $displayName = $displayName !== '' ? $displayName : $accountId;
+
         return PublicKeyCredentialCreationOptions::create(
             new PublicKeyCredentialRpEntity($rpId, $rpId),
-            PublicKeyCredentialUserEntity::create($accountId, $userHandle, $accountId),
+            PublicKeyCredentialUserEntity::create($userName, $userHandle, $displayName),
             $challenge,
             [
                 PublicKeyCredentialParameters::createPk(Algorithms::COSE_ALGORITHM_ES256),

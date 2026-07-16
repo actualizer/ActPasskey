@@ -140,6 +140,29 @@ final class CeremonyRoundTripTest extends TestCase
         $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx);
     }
 
+    public function testCreateOptionsCarriesTheHumanReadableDisplayName(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        $create = $reg->createOptions(
+            Realm::Admin,
+            $accountId,
+            $this->host,
+            $ctx,
+            'Ada Lovelace',
+            'ada@example.com'
+        );
+
+        $options = json_decode($create['options'], true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('ada@example.com', $options['user']['name']);
+        self::assertSame('Ada Lovelace', $options['user']['displayName']);
+        // The user handle must stay opaque random bytes — never the email/name.
+        self::assertNotSame('ada@example.com', $options['user']['id']);
+    }
+
     /**
      * `customer_id` has a real FK to `customer`, so owner ids must be real rows.
      */

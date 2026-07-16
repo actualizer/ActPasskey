@@ -159,4 +159,59 @@ final class CredentialRepositoryTest extends TestCase
         self::assertSame(2, $sut->listOwned(Realm::Customer, $ownerA, $ctx)->count());
         self::assertSame(1, $sut->listOwned(Realm::Customer, $ownerB, $ctx)->count());
     }
+
+    public function testRenameOwnedUpdatesTheNameForTheOwner(): void
+    {
+        $sut = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $ownerA = $this->createAdminUser();
+        $cred = Uuid::randomBytes();
+        $this->seed('admin', $ownerA, null, $cred);
+
+        $row = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
+        self::assertNotNull($row);
+
+        self::assertTrue($sut->renameOwned($row->getId(), Realm::Admin, $ownerA, 'New name', $ctx));
+
+        $entity = $sut->listOwned(Realm::Admin, $ownerA, $ctx)->first();
+        self::assertNotNull($entity);
+        self::assertSame('New name', $entity->getName());
+    }
+
+    public function testRenameOwnedIsANoOpForAForeignOwner(): void
+    {
+        $sut = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $ownerA = $this->createAdminUser();
+        $attackerB = $this->createAdminUser();
+        $cred = Uuid::randomBytes();
+        $this->seed('admin', $ownerA, null, $cred);
+
+        $row = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
+        self::assertNotNull($row);
+
+        self::assertFalse($sut->renameOwned($row->getId(), Realm::Admin, $attackerB, 'Hacked', $ctx));
+
+        $entity = $sut->listOwned(Realm::Admin, $ownerA, $ctx)->first();
+        self::assertNotNull($entity);
+        self::assertSame('n', $entity->getName());
+    }
+
+    public function testRenameOwnedIsANoOpAcrossRealms(): void
+    {
+        $sut = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $ownerA = $this->createAdminUser();
+        $cred = Uuid::randomBytes();
+        $this->seed('admin', $ownerA, null, $cred);
+
+        $row = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
+        self::assertNotNull($row);
+
+        self::assertFalse($sut->renameOwned($row->getId(), Realm::Customer, $ownerA, 'Hacked', $ctx));
+
+        $entity = $sut->listOwned(Realm::Admin, $ownerA, $ctx)->first();
+        self::assertNotNull($entity);
+        self::assertSame('n', $entity->getName());
+    }
 }

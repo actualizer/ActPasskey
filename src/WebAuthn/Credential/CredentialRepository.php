@@ -43,23 +43,42 @@ final class CredentialRepository
         $this->credentialRepository->update([['id' => $id, 'signCount' => $signCount]], $context);
     }
 
-    public function deleteOwned(string $id, Realm $realm, string $accountId, Context $context): bool
+    /**
+     * The combined id + realm + owner filter IS the IDOR defense for every mutation
+     * below: a row is only touchable when all three match. Never weaken this to
+     * id-only, and never inline a second copy — one owner check cannot drift.
+     */
+    private function assertOwned(string $id, Realm $realm, string $accountId, Context $context): bool
     {
         $ownerField = $realm === Realm::Admin ? 'userId' : 'customerId';
 
-        // The combined id + realm + owner filter IS the IDOR defense: a row is only
-        // deletable when all three match. Do not weaken this to id-only.
         $criteria = (new Criteria([$id]))
             ->addFilter(new EqualsFilter('realm', $realm->value))
             ->addFilter(new EqualsFilter($ownerField, $accountId))
             ->setLimit(1);
 
-        if ($this->credentialRepository->searchIds($criteria, $context)->getTotal() === 0) {
-            // Not owned or not found — identical outcome, no existence oracle for attackers.
+        // Not owned or not found — identical outcome, no existence oracle for attackers.
+        return $this->credentialRepository->searchIds($criteria, $context)->getTotal() > 0;
+    }
+
+    public function deleteOwned(string $id, Realm $realm, string $accountId, Context $context): bool
+    {
+        if (!$this->assertOwned($id, $realm, $accountId, $context)) {
             return false;
         }
 
         $this->credentialRepository->delete([['id' => $id]], $context);
+
+        return true;
+    }
+
+    public function renameOwned(string $id, Realm $realm, string $accountId, string $name, Context $context): bool
+    {
+        if (!$this->assertOwned($id, $realm, $accountId, $context)) {
+            return false;
+        }
+
+        $this->credentialRepository->update([['id' => $id, 'name' => $name]], $context);
 
         return true;
     }
