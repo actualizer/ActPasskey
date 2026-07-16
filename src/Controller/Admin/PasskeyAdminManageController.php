@@ -1,0 +1,227 @@
+<?php declare(strict_types=1);
+
+namespace Actualize\Passkey\Controller\Admin;
+
+use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
+use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
+use Shopware\Core\Framework\Api\ApiException;
+use Shopware\Core\Framework\Api\Context\AdminApiSource;
+use Shopware\Core\Framework\Api\OAuth\Scope\UserVerifiedScope;
+use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
+use Shopware\Core\Framework\RateLimiter\RateLimiter;
+use Shopware\Core\PlatformRequest;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
+use Symfony\Component\Routing\Attribute\Route;
+
+/**
+ * Admin passkey self-service. Every route derives ownership from the access
+ * token (AdminApiSource::getUserId()), never from the request body — combined
+ * with CredentialRepository's id+realm+owner filter this is the IDOR defense.
+ *
+ * Mutations additionally require the `user-verified` scope (fresh password
+ * confirmation), mirroring core's UserController::validateScope(). Listing is
+ * deliberately NOT gated: it only reads the caller's own rows and carries no
+ * secrets, and gating it would force a password prompt just to render the
+ * overview a passkey-logged-in admin needs in order to reach the step-up.
+ */
+#[Route(defaults: ['_routeScope' => ['api']])]
+class PasskeyAdminManageController
+{
+    public function __construct(
+        private readonly RegistrationCeremony $registrationCeremony,
+        private readonly CredentialRepository $credentials,
+        private readonly RateLimiter $rateLimiter,
+    ) {
+    }
+
+    #[Route(
+        path: '/api/_action/act-passkey/admin/credentials',
+        name: 'api.action.act_passkey.admin.credentials.list',
+        methods: ['POST'],
+    )]
+    public function list(Context $context): JsonResponse
+    {
+        $userId = $this->userId($context);
+
+        $credentials = [];
+        foreach ($this->credentials->listOwned(Realm::Admin, $userId, $context) as $credential) {
+            $credentials[] = [
+                'id' => $credential->getId(),
+                'name' => $credential->getName(),
+                'aaguid' => $credential->getAaguid(),
+                'transports' => $credential->getTransports(),
+                'createdAt' => $credential->getCreatedAt()?->format(\DATE_ATOM),
+            ];
+        }
+
+        return new JsonResponse(['credentials' => $credentials]);
+    }
+
+    #[Route(
+        path: '/api/_action/act-passkey/admin/register-challenge',
+        name: 'api.action.act_passkey.admin.register_challenge',
+        methods: ['POST'],
+    )]
+    public function registerChallenge(Request $request, Context $context): JsonResponse
+    {
+        $this->assertUserVerified($request);
+        $userId = $this->userId($context);
+
+        try {
+            $result = $this->registrationCeremony->createOptions(
+                Realm::Admin,
+                $userId,
+                $request->getHost(),
+                $context,
+                $this->displayName($request),
+                $this->userName($request),
+            );
+        } catch (UnsupportedHostException) {
+            return new JsonResponse(['error' => 'unsupported_host'], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new JsonResponse([
+            'options' => json_decode($result['options'], true),
+            'challengeId' => $result['challengeId'],
+        ]);
+    }
+
+    #[Route(
+        path: '/api/_action/act-passkey/admin/register',
+        name: 'api.action.act_passkey.admin.register',
+        methods: ['POST'],
+    )]
+    public function register(Request $request, Context $context): Response
+    {
+        $this->assertUserVerified($request);
+        $userId = $this->userId($context);
+        $rateLimitKey = $userId . '-' . (string) $request->getClientIp();
+
+        try {
+            $this->rateLimiter->ensureAccepted('act_passkey_register', $rateLimitKey);
+        } catch (RateLimitExceededException $exception) {
+            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
+        }
+
+        $response = $request->request->get('passkey_response');
+        $challengeId = $request->request->get('passkey_challenge_id');
+        $name = $request->request->get('name');
+        if (!is_string($response) || $response === '' || !is_string($challengeId) || $challengeId === '') {
+            throw new AccessDeniedHttpException('Passkey registration failed');
+        }
+
+        // displayName/userName must be the SAME values the matching
+        // register-challenge call used — they are part of the signed options.
+        $this->registrationCeremony->verify(
+            Realm::Admin,
+            $userId,
+            $response,
+            $challengeId,
+            $request->getHost(),
+            is_string($name) && $name !== '' ? $name : 'Passkey',
+            $context,
+            $this->displayName($request),
+            $this->userName($request),
+        );
+
+        $this->rateLimiter->reset('act_passkey_register', $rateLimitKey);
+
+        return new Response(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route(
+        path: '/api/_action/act-passkey/admin/credentials/{id}',
+        name: 'api.action.act_passkey.admin.credentials.rename',
+        methods: ['PATCH'],
+    )]
+    public function rename(string $id, Request $request, Context $context): Response
+    {
+        $this->assertUserVerified($request);
+        $name = $request->request->get('name');
+        if (!is_string($name) || $name === '') {
+            throw new AccessDeniedHttpException('Passkey rename failed');
+        }
+
+        // Return value intentionally ignored: "not yours" and "does not exist"
+        // must be indistinguishable to the caller.
+        $this->credentials->renameOwned($id, Realm::Admin, $this->userId($context), $name, $context);
+
+        return new Response(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route(
+        path: '/api/_action/act-passkey/admin/credentials/{id}',
+        name: 'api.action.act_passkey.admin.credentials.delete',
+        methods: ['DELETE'],
+    )]
+    public function delete(string $id, Request $request, Context $context): Response
+    {
+        $this->assertUserVerified($request);
+        $userId = $this->userId($context);
+        $rateLimitKey = $userId . '-' . (string) $request->getClientIp();
+
+        try {
+            $this->rateLimiter->ensureAccepted('act_passkey_delete', $rateLimitKey);
+        } catch (RateLimitExceededException $exception) {
+            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
+        }
+
+        // Same as rename: no existence oracle, so the result is not surfaced.
+        $this->credentials->deleteOwned($id, Realm::Admin, $userId, $context);
+
+        $this->rateLimiter->reset('act_passkey_delete', $rateLimitKey);
+
+        return new Response(null, Response::HTTP_NO_CONTENT);
+    }
+
+    private function userId(Context $context): string
+    {
+        $source = $context->getSource();
+        if (!$source instanceof AdminApiSource) {
+            throw new AccessDeniedHttpException('Passkey self-service requires an admin session.');
+        }
+
+        $userId = $source->getUserId();
+        if ($userId === null || $userId === '') {
+            // Integration (app/system) tokens have no user — they own no passkeys.
+            throw new AccessDeniedHttpException('Passkey self-service requires a user session.');
+        }
+
+        return $userId;
+    }
+
+    /**
+     * Same contract as core's UserController::validateScope(): a token without a
+     * fresh password confirmation must not change authentication factors. Unlike
+     * core we do not exempt non-`administration` clients — integration tokens own
+     * no passkeys and are already rejected in userId().
+     */
+    private function assertUserVerified(Request $request): void
+    {
+        $scopes = $request->attributes->get(PlatformRequest::ATTRIBUTE_OAUTH_SCOPES);
+        if (!is_array($scopes) || !in_array(UserVerifiedScope::IDENTIFIER, $scopes, true)) {
+            throw ApiException::invalidScopeAccessToken(UserVerifiedScope::IDENTIFIER);
+        }
+    }
+
+    private function displayName(Request $request): string
+    {
+        $value = $request->request->get('displayName');
+
+        return is_string($value) ? $value : '';
+    }
+
+    private function userName(Request $request): string
+    {
+        $value = $request->request->get('userName');
+
+        return is_string($value) ? $value : '';
+    }
+}
