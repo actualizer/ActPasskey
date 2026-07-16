@@ -4,6 +4,7 @@ namespace Actualize\Passkey\OAuth;
 
 use League\OAuth2\Server\AuthorizationServer;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
@@ -27,8 +28,12 @@ class PasskeyGrantSubscriber implements EventSubscriberInterface
         return [KernelEvents::REQUEST => ['enablePasskeyGrant', 128]];
     }
 
-    public function enablePasskeyGrant(): void
+    public function enablePasskeyGrant(RequestEvent $event): void
     {
+        if (!$event->isMainRequest()) {
+            return;
+        }
+
         $this->passkeyGrant->setRefreshTokenTTL(new \DateInterval($this->refreshTokenTtl));
         $this->authorizationServer->enableGrantType($this->passkeyGrant, new \DateInterval($this->accessTokenTtl));
     }

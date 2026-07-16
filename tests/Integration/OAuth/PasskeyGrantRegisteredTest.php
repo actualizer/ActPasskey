@@ -6,6 +6,9 @@ use Actualize\Passkey\OAuth\PasskeyGrantSubscriber;
 use League\OAuth2\Server\AuthorizationServer;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 final class PasskeyGrantRegisteredTest extends TestCase
@@ -17,7 +20,11 @@ final class PasskeyGrantRegisteredTest extends TestCase
         $subscriber = $this->getContainer()->get(PasskeyGrantSubscriber::class);
         self::assertNotNull($subscriber);
 
-        $subscriber->enablePasskeyGrant();
+        $kernel = $this->getKernel();
+        $request = Request::create('/api/oauth/token', 'POST');
+        $event = new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST);
+
+        $subscriber->enablePasskeyGrant($event);
 
         $server = $this->getContainer()->get('shopware.api.authorization_server');
         self::assertInstanceOf(AuthorizationServer::class, $server);

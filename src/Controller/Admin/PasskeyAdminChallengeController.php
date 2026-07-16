@@ -4,6 +4,7 @@ namespace Actualize\Passkey\Controller\Admin;
 
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
 use Shopware\Core\Framework\Context;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,7 +31,12 @@ class PasskeyAdminChallengeController
     public function loginChallenge(Request $request, Context $context): JsonResponse
     {
         $host = $request->getHost();
-        $result = $this->authenticationCeremony->createOptions(Realm::Admin, $host, $context);
+
+        try {
+            $result = $this->authenticationCeremony->createOptions(Realm::Admin, $host, $context);
+        } catch (UnsupportedHostException) {
+            return new JsonResponse(['error' => 'unsupported_host'], 400);
+        }
 
         return new JsonResponse([
             'options' => json_decode($result['options'], true),
