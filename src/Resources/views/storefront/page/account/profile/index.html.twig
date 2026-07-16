@@ -1,0 +1,85 @@
+{% sw_extends '@Storefront/storefront/page/account/profile/index.html.twig' %}
+
+{% block page_account_profile_mail_and_password %}
+    {% block page_account_profile_passkeys %}
+        <div class="card account-passkeys mb-4"
+             data-act-passkey-manage
+             data-challenge-url="{{ path('frontend.account.passkey.register.challenge') }}"
+             data-register-url="{{ path('frontend.account.passkey.register') }}"
+             data-error-text="{{ 'act-passkey.manage.error'|trans }}">
+            <div class="card-body">
+                <div class="card-title">{{ 'act-passkey.manage.title'|trans|sw_sanitize }}</div>
+
+                {% set passkeyCredentials = page.extensions.actPasskeyCredentials.credentials ?? [] %}
+
+                {% if passkeyCredentials is empty %}
+                    <p class="act-passkey-manage__empty">{{ 'act-passkey.manage.empty'|trans|sw_sanitize }}</p>
+                {% else %}
+                    <ul class="list-group mb-3 act-passkey-manage__list">
+                        {% for credential in passkeyCredentials %}
+                            <li class="list-group-item act-passkey-manage__item">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap">
+                                    <form action="{{ path('frontend.account.passkey.rename', {id: credential.id}) }}"
+                                          method="post"
+                                          class="form-inline act-passkey-manage__rename-form mr-2 mb-2">
+                                        <input type="text"
+                                               name="name"
+                                               value="{{ credential.name }}"
+                                               class="form-control form-control-sm act-passkey-manage__name-input"
+                                               required>
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary ml-2">
+                                            {{ 'act-passkey.manage.rename'|trans }}
+                                        </button>
+                                    </form>
+
+                                    <form action="{{ path('frontend.account.passkey.delete', {id: credential.id}) }}"
+                                          method="post"
+                                          class="form-inline act-passkey-manage__delete-form mb-2">
+                                        <input type="password"
+                                               name="password"
+                                               class="form-control form-control-sm"
+                                               placeholder="{{ 'act-passkey.manage.passwordLabel'|trans }}"
+                                               required>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger ml-2">
+                                            {{ 'act-passkey.manage.delete'|trans }}
+                                        </button>
+                                    </form>
+                                </div>
+                                <div class="act-passkey-manage__meta text-muted small">
+                                    {% if credential.lastUsedAt %}
+                                        {{ 'act-passkey.manage.lastUsed'|trans({'%date%': credential.lastUsedAt|format_date('medium')}) }}
+                                    {% else %}
+                                        {{ 'act-passkey.manage.neverUsed'|trans }}
+                                    {% endif %}
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                <div class="act-passkey-manage__register" data-act-passkey-manage-register hidden>
+                    <form class="form-inline act-passkey-manage__register-form" data-act-passkey-manage-form>
+                        <input type="text"
+                               name="name"
+                               class="form-control form-control-sm mr-2 mb-2"
+                               placeholder="{{ 'act-passkey.manage.nameLabel'|trans }}">
+                        <input type="password"
+                               name="password"
+                               class="form-control form-control-sm mr-2 mb-2"
+                               placeholder="{{ 'act-passkey.manage.passwordLabel'|trans }}"
+                               required
+                               data-act-passkey-manage-password>
+                        <button type="submit" class="btn btn-sm btn-primary mb-2" data-act-passkey-manage-button>
+                            {{ 'act-passkey.manage.register'|trans }}
+                        </button>
+                    </form>
+                    <div class="act-passkey-manage__error alert alert-danger mt-2"
+                         data-act-passkey-manage-error
+                         hidden></div>
+                </div>
+            </div>
+        </div>
+    {% endblock %}
+
+    {{ parent() }}
+{% endblock %}

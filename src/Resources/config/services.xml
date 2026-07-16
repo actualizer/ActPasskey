@@ -146,6 +146,29 @@
             <tag name="controller.service_arguments"/>
         </service>
 
+        <!-- Storefront passkey self-service (register/rename/delete on the
+             customer's own account profile page): wraps
+             PasskeyManageStoreApiController and calls it in-process, exactly
+             like AccountProfileController does for its own store-api routes,
+             so the eligibility guard, step-up password and rate limiting
+             cannot drift from the store-api contract. -->
+        <service id="Actualize\Passkey\Controller\Storefront\PasskeyManageStorefrontController" public="true">
+            <argument type="service" id="Actualize\Passkey\Controller\Store\PasskeyManageStoreApiController"/>
+            <call method="setContainer">
+                <argument type="service" id="service_container"/>
+            </call>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <!-- Server-renders the customer's own passkey list into the account
+             profile page (see class doc for why this bypasses the store-api
+             JSON round-trip). -->
+        <service id="Actualize\Passkey\Subscriber\Storefront\AccountProfilePasskeysSubscriber">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
         <service id="Actualize\Passkey\OAuth\PasskeyGrant">
             <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
