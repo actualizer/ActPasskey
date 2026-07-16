@@ -1,9 +1,5 @@
-{#
-    The core wraps this screen in a single block with no inner ones, so the
-    passkey button cannot be appended after {% parent() %} — it would land
-    outside the modal. The block is therefore replaced and the core markup below
-    is a verbatim copy that has to be kept in sync when the core changes it.
-#}
+{# The core offers no inner block here, so this replaces the whole one: the
+   markup below is a copy of the core's and has to be kept in sync with it. #}
 {% block sw_inactivity_login %}
 <div class="sw-inactivity-login">
 
@@ -27,11 +23,8 @@
             :label="$t('sw-login.index.labelKeepLoggedIn')"
         />
 
-        {# The modal body is a plain block container without gap, so every child
-           brings its own spacing — the password field above uses the same
-           --scale-size-32 rhythm. The margin sits inline rather than in a
-           stylesheet because this screen only ever receives our JS bundle: a
-           plugin stylesheet is not loaded while logged out. #}
+        {# Inline margin: the modal body has no gap, and a plugin stylesheet is
+           not loaded on this screen. #}
         {% block act_passkey_inactivity_login_submit %}
             <mt-button
                 class="act-passkey-inactivity-login__button"

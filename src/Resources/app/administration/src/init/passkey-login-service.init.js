@@ -34,7 +34,6 @@ Application.addServiceProviderDecorator('loginService', (loginService) => {
             throw new Error('passkey-unsupported');
         }
 
-        // 1) request a usernameless challenge from the server
         const challengeResponse = await httpClient.post(
             '/_action/act-passkey/admin/login-challenge',
             {},
@@ -42,7 +41,6 @@ Application.addServiceProviderDecorator('loginService', (loginService) => {
         );
         const { options, challengeId } = challengeResponse.data;
 
-        // 2) decode the base64url-encoded fields for navigator.credentials.get
         const publicKey = {
             ...options,
             challenge: base64UrlToBuffer(options.challenge),
@@ -54,7 +52,6 @@ Application.addServiceProviderDecorator('loginService', (loginService) => {
 
         const credential = await navigator.credentials.get({ publicKey });
 
-        // 3) serialize the assertion into the JSON shape the server's WebauthnSerializer expects
         const assertion = {
             id: credential.id,
             rawId: bufferToBase64Url(credential.rawId),
@@ -68,7 +65,6 @@ Application.addServiceProviderDecorator('loginService', (loginService) => {
             clientExtensionResults: credential.getClientExtensionResults ? credential.getClientExtensionResults() : {},
         };
 
-        // 4) exchange the verified assertion for an admin access token via the passkey grant
         const tokenResponse = await httpClient.post(
             '/oauth/token',
             {

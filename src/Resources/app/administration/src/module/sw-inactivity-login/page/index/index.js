@@ -1,12 +1,5 @@
-/**
- * Adds the passkey button to the inactivity screen — the dialog the
- * administration shows after an automatic logout. Without it, that screen is a
- * password-only dead end for anyone who signs in with a passkey.
- *
- * Snippets come from the `sw-login` namespace on purpose: the session is gone
- * here, so a reloaded inactivity screen gets its snippets unauthenticated, and
- * the endpoint then serves nothing but the `sw-login` and `global` namespaces.
- */
+// Snippets live under `sw-login`: a reloaded inactivity screen fetches them
+// without a session, and the endpoint then serves only `sw-login` and `global`.
 import template from './sw-inactivity-login.html.twig';
 
 const { Component } = Shopware;
@@ -21,9 +14,6 @@ Component.override('sw-inactivity-login', {
 
             try {
                 await this.loginService.loginByPasskey();
-
-                // Same success path as the password login: notifies the other
-                // tabs via the session channel and restores the previous route.
                 this.handleLoginSuccess();
             } catch {
                 this.passwordError = {

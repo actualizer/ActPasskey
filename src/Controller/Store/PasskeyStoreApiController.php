@@ -14,14 +14,10 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Store-api passkey login: hands out a usernameless WebAuthn request-options
- * payload (challenge) and, after the browser responds, verifies the
- * assertion at the CUSTOMER realm via CustomerPasskeyLoginService. That
- * service applies CustomerEligibilityGuard (active + confirmed double
- * opt-in) before calling AccountService::loginById, so a session is only
- * ever issued for an account that may actually log in — no password check
- * is involved, but eligibility still is. Both routes are pre-login
- * (auth_required=false).
+ * Store-api passkey login: hands out a usernameless challenge and verifies the
+ * assertion at the CUSTOMER realm via CustomerPasskeyLoginService. No password
+ * check is involved, but eligibility still is — the service guards it before
+ * opening a session. Both routes are pre-login (auth_required=false).
  */
 #[Route(defaults: ['_routeScope' => ['store-api'], 'auth_required' => false])]
 class PasskeyStoreApiController

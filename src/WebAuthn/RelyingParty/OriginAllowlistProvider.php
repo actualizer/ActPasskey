@@ -8,11 +8,10 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelDomain\SalesChannelDomainCollection;
 
 /**
- * Builds the WebAuthn trusted origin allowlist exclusively from configuration
- * (`APP_URL`) and the `sales_channel_domain` table. The request Host header
- * is NEVER consulted here - `origins()` only accepts a `Context`, so there is
- * no input path through which a hostile Host header could influence the
- * allowlist.
+ * Builds the WebAuthn trusted origin allowlist exclusively from `APP_URL` and
+ * the `sales_channel_domain` table. The request Host header is NEVER consulted:
+ * `origins()` accepts only a `Context`, so a hostile Host header has no input
+ * path into the allowlist.
  */
 final class OriginAllowlistProvider
 {

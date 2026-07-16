@@ -1,10 +1,5 @@
-/**
- * The two snippets used here live under the `sw-login` namespace instead of
- * `act-passkey`, because the login screen is unauthenticated: the snippet
- * endpoint drops every namespace outside of `sw-login` and `global` while no
- * valid token exists, so an `act-passkey.*` key would render as a raw key.
- * Everything shown after login stays in our own namespace.
- */
+// Snippets live under `sw-login`: while logged out the snippet endpoint serves
+// only the `sw-login` and `global` namespaces.
 import template from './sw-login-login.html.twig';
 
 import deDE from '../../../../snippet/de-DE.json';

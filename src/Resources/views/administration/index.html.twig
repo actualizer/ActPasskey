@@ -1,28 +1,12 @@
 {% sw_extends '@Administration/administration/index.html.twig' %}
 
-{#
-    The administration loads plugin bundles from /api/_info/config, which
-    answers 401 before login — so a passkey button registered from the plugin
-    bundle can never reach the login screen. This block is the core's dedicated
-    (and otherwise unused) extension point for exactly that case: it renders
-    server-side, needs no API auth, and sits after the administration bundle but
-    before Shopware.Application.start(), so the Component.override() lands in the
-    registry in time.
-
-    parent() keeps whatever another plugin may already have put in this block.
-#}
 {% block administration_login_scripts %}
     {{ parent() }}
 
-    {#
-        The URL must match the one /api/_info/config hands to the administration
-        character for character. After login the boot injects a second script tag
-        from that endpoint, and the browser only skips re-evaluating a module if
-        the URL is identical — otherwise every override in this bundle runs twice
-        (a second passkey card on the profile page). Hence the same asset prefix
-        the core applies to those paths, and deliberately no `asset(src)`, whose
-        cache-busting query string would make the two URLs differ.
-    #}
+    {# The URL must match /api/_info/config character for character: after login
+       the boot injects a second tag for the same file, and the browser skips
+       re-evaluating the module only on an identical URL. `asset(src)` would add a
+       cache-busting query and every override would run twice. #}
     {% for src in act_passkey_admin_scripts() %}
         <script type="module" src="{{ asset('', 'asset') ~ src }}" nonce="{{ cspNonce }}"></script>
     {% endfor %}

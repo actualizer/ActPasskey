@@ -1,11 +1,5 @@
-{#
-    Extends the inner button block, not `sw_login_login_submit`: the outer block
-    renders the `.sw-login__submit` flex container itself, so anything appended
-    after it becomes a sibling with no spacing. Inside, the button is a child of
-    that container and inherits its `gap` — including the media query that widens
-    the gap on narrow screens. No own CSS needed, which also keeps the login
-    screen free of a stylesheet the plugin would have to deliver pre-auth.
-#}
+{# The inner block, not sw_login_login_submit: only in here is the button a child
+   of the submit flex container and inherits its gap. #}
 {% block sw_login_login_submit_button %}
     {% parent() %}
 

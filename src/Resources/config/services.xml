@@ -22,27 +22,16 @@
             <argument type="service" id="act_passkey_credential.repository"/>
         </service>
 
-        <!-- Clock service id resolved via `debug:container clock`: `Psr\Clock\ClockInterface`
-             and `Symfony\Component\Clock\ClockInterface` are both private aliases for the
-             `clock` service (Symfony\Component\Clock\Clock). Referencing a private alias as
-             a constructor argument works fine — privacy only blocks direct container->get(). -->
-        <!-- Own pool (see Resources/config/packages/framework.yaml), NOT the
-             session: challenges must survive on the stateless admin /api
-             endpoint. And NOT `cache.app` either — Shopware maps that to
-             cache.adapter.array in dev, which lives for one request only, so
-             every two-request passkey flow would break locally while passing
-             in prod. See the ChallengeStore class doc. -->
+        <!-- Own pool, not the session (challenges must survive on the stateless
+             /api endpoint) and not cache.app (mapped to the array adapter in dev,
+             which lives for one request — every passkey flow needs two). -->
         <service id="Actualize\Passkey\WebAuthn\Challenge\ChallengeStore" public="true">
             <argument type="service" id="act_passkey.challenge_pool"/>
             <argument type="service" id="Psr\Clock\ClockInterface"/>
         </service>
 
-        <!-- Second argument (broaden-parent) is intentionally `null` for Phase 1: no
-             configured RP-ID broadening yet. The bare `<argument>null</argument>` (no
-             type attribute) goes through XmlFileLoader's default branch, which calls
-             XmlUtils::phpize() on the node text; phpize() maps the literal string
-             "null" to a real PHP null, not the string "null". Verified via
-             `debug:container` (see task report) that the service instantiates. -->
+        <!-- Second argument (broaden-parent): no RP-ID broadening configured yet.
+             The untyped <argument>null</argument> is phpize()d to a real null. -->
         <service id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver" public="true">
             <argument type="string">%env(APP_URL)%</argument>
             <argument>null</argument>
@@ -173,10 +162,6 @@
             <tag name="kernel.event_subscriber"/>
         </service>
 
-        <!-- Renders this plugin's admin entry point into the login screen, which
-             cannot load plugin bundles via /api/_info/config (401 pre-login).
-             Reads our own vite manifest, so no dependency on the administration
-             bundle's internals is needed. -->
         <service id="Actualize\Passkey\Twig\AdministrationLoginScriptsExtension">
             <argument type="service" id="kernel"/>
             <tag name="twig.extension"/>

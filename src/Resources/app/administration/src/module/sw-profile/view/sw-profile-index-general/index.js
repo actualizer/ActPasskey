@@ -36,11 +36,8 @@ Component.override('sw-profile-index-general', {
 
     inject: ['passkeyApiService'],
 
-    // Mixin by name, not by Mixin.getByName(): this bundle is loaded on the
-    // login screen, where it is evaluated before `src/app/main` has registered
-    // any mixin, so a lookup at import time throws. The name is resolved when
-    // the component is built (long after boot). Reading a core registry at
-    // import time is what breaks here — writing to one is fine.
+    // By name, not Mixin.getByName(): on the login screen this bundle runs
+    // before any mixin is registered, so a lookup at import time throws.
     mixins: ['notification'],
 
     data() {
@@ -86,10 +83,8 @@ Component.override('sw-profile-index-general', {
     },
 
     methods: {
-        // The API sends ISO8601 with an explicit UTC offset; the core date filter
-        // renders it in the timezone from the admin user's profile. Resolving the
-        // filter here rather than at import time is deliberate: this bundle is
-        // also evaluated on the login screen, before the filter registry exists.
+        // Renders the API's ISO8601 in the user profile's timezone. Resolved
+        // here, not at import time: on the login screen the registry is empty.
         formatDate(value) {
             if (!value) {
                 return '';

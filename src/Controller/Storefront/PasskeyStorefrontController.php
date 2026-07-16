@@ -13,14 +13,10 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Storefront passkey login: hands out a usernameless WebAuthn request-options
- * payload (challenge) and, after the browser responds, verifies the assertion
- * at the CUSTOMER realm and establishes the session via
- * CustomerPasskeyLoginService (no password check — the passkey assertion IS
- * the credential), same-origin, so the login page can redirect straight into
- * the account area. Shares the login service with PasskeyStoreApiController
- * so the account eligibility checks cannot drift apart between the two entry
- * points.
+ * Storefront passkey login: hands out a usernameless challenge and verifies the
+ * assertion at the CUSTOMER realm. No password check — the assertion IS the
+ * credential. The session is opened via CustomerPasskeyLoginService, shared with
+ * PasskeyStoreApiController so the eligibility checks cannot drift apart.
  */
 #[Route(defaults: ['_routeScope' => ['storefront']])]
 class PasskeyStorefrontController extends StorefrontController
@@ -57,13 +53,9 @@ class PasskeyStorefrontController extends StorefrontController
             return $this->forwardToRoute('frontend.account.login.page', ['loginError' => true], []);
         }
 
-        // Mirrors AuthController::login: honors the redirectTo/redirectParameters
-        // carried over from the surrounding login form (checkout guest-login,
-        // product-review login card, ...) instead of always bouncing to the
-        // account home page. createActionResponse() falls back to an empty
-        // Response when neither redirectTo nor forwardTo is present on the
-        // request, so keep the account-home redirect as an explicit fallback
-        // for that case.
+        // createActionResponse() falls back to an EMPTY Response when neither
+        // redirectTo nor forwardTo is present, hence the explicit account-home
+        // redirect below.
         if ($request->request->has('redirectTo') || $request->query->has('redirectTo')) {
             return $this->createActionResponse($request);
         }

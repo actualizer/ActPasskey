@@ -10,17 +10,10 @@ use Shopware\Storefront\Page\Account\Profile\AccountProfilePageLoadedEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
- * Adds the logged-in customer's own passkeys to the account profile page so
- * the passkeys card (block `page_account_profile_passkeys`) can render the
- * list server-side on every page load — no dedicated list route, no AJAX
- * round-trip, and every mutation (register/rename/delete) already redirects
- * back to this page, so the list is always current.
- *
- * Reuses the exact same services PasskeyManageStoreApiController::list() uses
- * (CredentialRepository, CustomerEligibilityGuard) rather than re-querying via
- * a JSON round-trip through that controller — this keeps the entities typed
- * (real DateTimeInterface columns for the twig date filters) and does not
- * duplicate the ownership query.
+ * Adds the logged-in customer's own passkeys to the account profile page so the
+ * passkeys card (block `page_account_profile_passkeys`) can render the list
+ * server-side. Every mutation redirects back to this page, so the list is
+ * always current.
  */
 final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
 {
@@ -44,9 +37,7 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
     {
         $customer = $event->getSalesChannelContext()->getCustomer();
         if ($customer === null) {
-            // The page route is `_loginRequired`, so this should never happen
-            // in production — defensive guard only, never a reason to fail
-            // rendering the rest of the profile page.
+            // The page route is `_loginRequired`; defensive guard only.
             return;
         }
 
@@ -54,10 +45,9 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
             $this->guard->assertEligible($customer);
             $credentials = $this->credentials->listOwned(Realm::Customer, $customer->getId(), $event->getContext());
         } catch (\Throwable) {
-            // A session can outlive eligibility (e.g. an admin deactivates the
-            // account after login). The guard throwing here must never take
-            // down the WHOLE profile page — the twig template already treats
-            // a missing extension as an empty list via the `?? []` fallback.
+            // A session can outlive eligibility (e.g. the account is deactivated
+            // after login). That must never take down the whole profile page; the
+            // template treats a missing extension as an empty list.
             return;
         }
 

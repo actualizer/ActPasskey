@@ -1,17 +1,11 @@
 const Plugin = window.PluginBaseClass;
 
 /**
- * Reveals the "sign in with a passkey" button on the storefront account
- * login page (only when the browser supports WebAuthn) and drives the
- * usernameless authentication ceremony: fetch request options from the
- * challenge endpoint, resolve `navigator.credentials.get()`, then submit
- * the assertion as a real form POST so the server's 302 redirect performs
- * a normal browser navigation into the account area.
+ * Usernameless passkey login on the storefront account login page.
  *
- * Verified against the stock login form (vendor/shopware/storefront):
- * it POSTs without any CSRF token field and Shopware 6.7 has no CSRF
- * listener/twig node-visitor wired up for storefront forms, so this
- * plugin's POST needs no token either.
+ * The assertion goes out as a real form POST so the server's 302 redirect is a
+ * normal browser navigation. Shopware 6.7 wires no CSRF listener for storefront
+ * forms, so this POST carries no token either.
  */
 export default class PasskeyLogin extends Plugin {
     init() {
@@ -22,8 +16,7 @@ export default class PasskeyLogin extends Plugin {
         this.errorText = this.el.dataset.errorText || '';
 
         if (!window.PublicKeyCredential || !this.button || !this.challengeUrl || !this.loginUrl) {
-            // No WebAuthn support (or markup incomplete) -> leave the
-            // wrapper hidden, the password form stays fully usable.
+            // Leave the wrapper hidden: the password form stays fully usable.
             return;
         }
 
@@ -71,9 +64,8 @@ export default class PasskeyLogin extends Plugin {
 
             this._submitAssertion(assertion, challengeId);
         } catch {
-            // User cancelled the WebAuthn prompt, no credential available,
-            // or the challenge fetch failed -> never leave the user stuck,
-            // show an inline error and let them fall back to the password form.
+            // Cancelled prompt, no credential, or a failed fetch: never leave the
+            // user stuck without the password fallback.
             this._showError();
         }
     }
@@ -94,9 +86,8 @@ export default class PasskeyLogin extends Plugin {
         addField('passkey_response', JSON.stringify(assertion));
         addField('passkey_challenge_id', challengeId);
 
-        // Carry the surrounding password-login form's redirectTo/redirectParameters
-        // along, so a passkey login from checkout/product-review cards returns the
-        // user to where they were instead of bouncing them to the account home page.
+        // Carry the surrounding login form's redirect fields, so a passkey login
+        // from checkout/review cards returns the user to where they were.
         this._carryRedirectFields(addField);
 
         document.body.appendChild(form);

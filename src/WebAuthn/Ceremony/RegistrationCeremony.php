@@ -20,9 +20,8 @@ use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
 
 /**
- * Registration ("attestation") ceremony: builds the creation options for the
- * browser and verifies the returned attestation against the real webauthn-lib
- * validator before persisting the credential.
+ * Registration ("attestation") ceremony: builds the creation options and
+ * verifies the returned attestation before persisting the credential.
  */
 final class RegistrationCeremony
 {
@@ -73,13 +72,8 @@ final class RegistrationCeremony
             throw new RuntimeException('Invalid or expired registration challenge.');
         }
 
-        // Reconstruct the options with the SAME challenge that was issued and
-        // just consumed, so CheckChallenge compares against the exact value.
-        // Only the challenge, origin and rpId hash are actually compared here:
-        // the signed clientDataJSON carries type/challenge/origin/crossOrigin,
-        // and no ceremony step reads the user entity's name/displayName (only
-        // its id, i.e. the random user handle). Passing them keeps the rebuilt
-        // options faithful, but they cannot make verification pass or fail.
+        // Rebuild the options with the SAME challenge that was just consumed, so
+        // CheckChallenge compares against the exact issued value.
         $options = $this->buildOptions($realm, $accountId, $host, $challenge, $context, $displayName, $userName);
 
         $credential = $this->serializer->deserializeCredential($rawResponseJson);
@@ -120,9 +114,8 @@ final class RegistrationCeremony
         $rpId = $this->rpIdResolver->resolve($host);
         $userHandle = $this->userHandles->getOrCreate($realm, $accountId, $context);
 
-        // name/displayName are what the browser's passkey manager shows the user.
-        // They fall back to the account id only when a caller supplies nothing.
-        // The user handle stays random bytes and never carries these values (spec §8).
+        // Cosmetic only: the label the browser's passkey manager shows. The user
+        // handle stays random bytes and must never carry these values.
         $userName = $userName !== '' ? $userName : $accountId;
         $displayName = $displayName !== '' ? $displayName : $accountId;
 

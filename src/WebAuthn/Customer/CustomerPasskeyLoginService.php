@@ -13,9 +13,8 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 /**
- * Single implementation of "verify a customer assertion and open a session",
- * shared by the store-api route and the storefront controller so the account
- * checks cannot drift apart between the two entry points.
+ * Verifies a customer assertion and opens a session. Shared by the store-api
+ * route and the storefront controller so the account checks cannot drift apart.
  */
 final class CustomerPasskeyLoginService
 {

@@ -18,14 +18,12 @@ use Webauthn\PublicKeyCredentialRequestOptions;
 use Webauthn\TrustPath\EmptyTrustPath;
 
 /**
- * Authentication ("assertion") ceremony: builds usernameless request options
- * and verifies the returned assertion against the real webauthn-lib validator.
+ * Authentication ("assertion") ceremony: builds usernameless request options and
+ * verifies the returned assertion.
  *
- * Realm boundary: the credential is looked up REALM-SCOPED via
- * CredentialRepository::findOneByCredentialId, and the resolved account id comes
- * from the STORED credential row's owner (userId / customerId) — never from the
- * raw userHandle carried in the assertion. A credential registered in one realm
- * is therefore invisible (and unusable) in another.
+ * Realm boundary: the credential lookup is realm-scoped and the resolved account
+ * id comes from the STORED row's owner — never from the userHandle carried in
+ * the assertion. A credential from one realm is unusable in another.
  */
 final class AuthenticationCeremony
 {
@@ -78,8 +76,6 @@ final class AuthenticationCeremony
             throw new RuntimeException('The response is not an assertion response.');
         }
 
-        // REALM-SCOPED lookup — this is the realm boundary. A credential from a
-        // different realm resolves to null here and the ceremony aborts.
         $entity = $this->credentials->findOneByCredentialId($credential->rawId, $realm, $context);
         if ($entity === null) {
             throw new RuntimeException('Unknown credential for this realm.');
@@ -90,8 +86,8 @@ final class AuthenticationCeremony
         $validator = AuthenticatorAssertionResponseValidator::create(
             $this->ceremonyFactory->request($context)
         );
-        // Expected user handle = the stored credential's handle. The validator
-        // additionally enforces the assertion's userHandle matches it.
+        // Last argument is the expected user handle: the validator enforces that
+        // the assertion's own userHandle matches the stored one.
         $validator->check($record, $response, $options, $host, $entity->getUserHandle());
 
         $this->credentials->updateSignCount(
@@ -101,7 +97,6 @@ final class AuthenticationCeremony
             new \DateTimeImmutable()
         );
 
-        // Owner comes from the stored row, NOT from the assertion's userHandle.
         $accountId = $entity->getRealm() === Realm::Admin->value
             ? $entity->getUserId()
             : $entity->getCustomerId();

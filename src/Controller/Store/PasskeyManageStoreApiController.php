@@ -25,22 +25,14 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 /**
- * Customer passkey self-service. `_loginRequired` + the CustomerEntity parameter
- * are self-enforcing (CustomerValueResolver rejects the route outright if the
- * attribute is ever dropped, and SalesChannelRequestContextResolver::validateLogin()
- * rejects both an anonymous session and — because `_loginRequiredAllowGuest` is
- * deliberately NOT set — a guest one). assertEligible() additionally re-applies the
- * active/double-opt-in checks that AccountService::loginById() skips, so a passkey
- * can never be enrolled by an account that may not log in with a password.
+ * Customer passkey self-service.
  *
- * Ownership always comes from the session customer, never from the request — that,
- * combined with CredentialRepository's id + realm + owner filter, is the IDOR defense.
- *
- * Password step-up (CustomerPasswordMatches, the same constraint core's
- * ChangePasswordRoute uses) guards every route that adds or removes an
- * authentication factor: register-challenge, register and delete. Listing and
- * renaming stay step-up free — a label change is not an auth-factor change, and
- * gating the list would force a password prompt just to render the overview.
+ * `_loginRequiredAllowGuest` is deliberately NOT set: guests must be rejected.
+ * Ownership always comes from the session customer, never from the request —
+ * that, combined with CredentialRepository's id + realm + owner filter, is the
+ * IDOR defense. Password step-up guards every route that adds or removes an
+ * authentication factor (register-challenge, register, delete); listing and
+ * renaming stay step-up free.
  */
 #[Route(defaults: [
     '_routeScope' => ['store-api'],

@@ -8,12 +8,10 @@ use Webauthn\CeremonyStep\CeremonyStepManager;
 use Webauthn\CeremonyStep\CeremonyStepManagerFactory;
 
 /**
- * Builds the webauthn-lib CeremonyStepManagers for registration ("creation")
- * and authentication ("request"), pinning the allowed origins to the
- * server-derived allowlist from OriginAllowlistProvider (never the request
- * Host header). Algorithm (ES256/RS256) and attestation support (none) are
- * left at CeremonyStepManagerFactory's library defaults, which match this
- * plugin's `none`-attestation passkey setup.
+ * Builds the webauthn-lib CeremonyStepManagers, pinning the allowed origins to
+ * the server-derived allowlist — never the request Host header. Algorithms and
+ * attestation support stay at the library defaults, which match this plugin's
+ * `none`-attestation setup.
  */
 final class CeremonyFactory
 {

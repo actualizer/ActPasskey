@@ -16,15 +16,9 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Customer-facing passkey self-service on the storefront account profile page.
- * Every route mirrors AccountProfileController's own convention: never touch
- * the repository directly, always call the Task-7 store-api route in-process
- * (here: PasskeyManageStoreApiController), so the eligibility guard, the
- * password step-up and the rate limiting stay in exactly one place.
- *
- * `_loginRequired` + the CustomerEntity parameter are self-enforcing
- * (CustomerValueResolver rejects the route outright if the attribute is ever
- * dropped, guests are rejected as well) — same guarantee as the store-api
- * controller this one wraps.
+ * Never touch the repository directly: always call the store-api route
+ * in-process, so the eligibility guard, the password step-up and the rate
+ * limiting stay in exactly one place.
  */
 #[Route(defaults: ['_routeScope' => ['storefront']])]
 class PasskeyManageStorefrontController extends StorefrontController
@@ -67,9 +61,8 @@ class PasskeyManageStorefrontController extends StorefrontController
             $this->manageStoreApi->register($request, $data, $context, $customer);
             $this->addFlash(self::SUCCESS, $this->trans('act-passkey.manage.registerSuccess'));
         } catch (\Throwable) {
-            // Wrong step-up password (ConstraintViolationException), a stale/
-            // tampered challenge or a rate-limit hit all end up as the same
-            // generic error flash — never leak a 500 for a failed enrollment.
+            // Wrong step-up password, a stale challenge and a rate-limit hit all
+            // share one generic flash — never leak a 500 for a failed enrollment.
             $this->addFlash(self::DANGER, $this->trans('act-passkey.manage.error'));
         }
 

@@ -11,12 +11,6 @@ use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialRequestOptions;
 
 /**
- * Thin wrapper that builds the webauthn-lib serializer exactly once from
- * WebauthnSerializerFactory. It serializes the option objects to the JSON the
- * browser's `navigator.credentials` call consumes, and deserializes the browser
- * `PublicKeyCredential` JSON back into the library value objects the real
- * validators operate on.
- *
  * Only `none` attestation is registered, matching this plugin's passkey setup.
  */
 final class WebauthnSerializer
