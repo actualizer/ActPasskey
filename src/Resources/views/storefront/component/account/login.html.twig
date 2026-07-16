@@ -1,34 +1,46 @@
 {% sw_extends '@Storefront/storefront/component/account/login.html.twig' %}
 
+{# This block is replaced instead of extended, which is a deliberate trade-off:
+   the core wraps its submit button in `.login-submit` without an inner block,
+   so appending after parent() can only ever put the passkey button on its own
+   line. Placing both buttons in one row means owning the row — the core button
+   below is therefore a verbatim copy and has to be kept in sync when the core
+   changes it. Layout is Bootstrap utilities only, so the plugin still ships no
+   stylesheet. #}
 {% block component_account_login_submit %}
-    {{ parent() }}
-    {# The divider lives inside the hidden container on purpose: it may only
-       appear together with the button it separates, never on its own when the
-       browser cannot do WebAuthn. Built from Bootstrap utilities so the plugin
-       needs no stylesheet of its own. #}
-    <div class="act-passkey-login"
-         data-act-passkey-login
-         data-challenge-url="{{ path('frontend.account.login.passkey.challenge') }}"
-         data-login-url="{{ path('frontend.account.login.passkey') }}"
-         data-error-text="{{ 'act-passkey.login.error'|trans }}"
-         hidden>
-        {% block act_passkey_login_divider %}
-            <div class="act-passkey-login__divider d-flex align-items-center my-3">
-                <hr class="flex-grow-1 my-0">
-                <span class="act-passkey-login__divider-text px-3 text-muted small">
+    <div class="login-submit d-flex flex-wrap align-items-center gap-2">
+        <button type="submit"
+                class="btn btn-primary">
+            {{ 'account.loginSubmit'|trans|sw_sanitize }}
+        </button>
+
+        {# Stays hidden until the JS plugin confirms WebAuthn support, which is
+           why the "or" belongs in here: without passkey support neither the
+           separator nor the button may appear. #}
+        <div class="act-passkey-login d-flex flex-wrap align-items-center gap-2"
+             data-act-passkey-login
+             data-challenge-url="{{ path('frontend.account.login.passkey.challenge') }}"
+             data-login-url="{{ path('frontend.account.login.passkey') }}"
+             data-error-text="{{ 'act-passkey.login.error'|trans }}"
+             hidden>
+            {% block act_passkey_login_divider %}
+                <span class="act-passkey-login__divider text-muted small">
                     {{ 'act-passkey.login.divider'|trans }}
                 </span>
-                <hr class="flex-grow-1 my-0">
-            </div>
-        {% endblock %}
+            {% endblock %}
 
-        <button type="button"
-                class="btn btn-outline-primary btn-block act-passkey-login__button"
-                data-act-passkey-login-button>
-            {{ 'act-passkey.login.button'|trans }}
-        </button>
-        <div class="act-passkey-login__error alert alert-danger mt-2"
-             data-act-passkey-login-error
-             hidden></div>
+            <button type="button"
+                    class="btn btn-outline-primary act-passkey-login__button"
+                    data-act-passkey-login-button>
+                {{ 'act-passkey.login.button'|trans }}
+            </button>
+
+            {# w-100 breaks the alert onto its own line below the buttons; it has
+               to stay inside this container because the JS plugin resolves it
+               relative to its root element. #}
+            <div class="act-passkey-login__error alert alert-danger w-100 mt-2"
+                 data-act-passkey-login-error
+                 hidden></div>
+        </div>
     </div>
 {% endblock %}
