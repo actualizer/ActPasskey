@@ -1,16 +1,7 @@
 import template from './sw-profile-index-general.html.twig';
 
-import deDE from '../../../../snippet/de-DE.json';
-import enGB from '../../../../snippet/en-GB.json';
-
-Shopware.Locale.extend('de-DE', deDE);
-Shopware.Locale.extend('en-GB', enGB);
-
 const { Component } = Shopware;
 
-// Same base64url <-> ArrayBuffer conversion as init/passkey-login-service.init.js,
-// duplicated locally rather than shared: registration also needs to encode the
-// attestation response, which the login (assertion) flow does not.
 function base64UrlToBuffer(value) {
     const padding = '='.repeat((4 - (value.length % 4)) % 4);
     const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');

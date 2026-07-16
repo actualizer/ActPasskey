@@ -2,12 +2,6 @@
 // only the `sw-login` and `global` namespaces.
 import template from './sw-login-login.html.twig';
 
-import deDE from '../../../../snippet/de-DE.json';
-import enGB from '../../../../snippet/en-GB.json';
-
-Shopware.Locale.extend('de-DE', deDE);
-Shopware.Locale.extend('en-GB', enGB);
-
 const { Component } = Shopware;
 
 Component.override('sw-login-login', {
