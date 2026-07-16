@@ -11,5 +11,9 @@
         <service id="Actualize\Passkey\Entity\PasskeyUserHandle\PasskeyUserHandleDefinition">
             <tag name="shopware.entity.definition" entity="act_passkey_user_handle"/>
         </service>
+
+        <service id="Actualize\Passkey\WebAuthn\Credential\UserHandleProvider" public="true">
+            <argument type="service" id="act_passkey_user_handle.repository"/>
+        </service>
     </services>
 </container>
