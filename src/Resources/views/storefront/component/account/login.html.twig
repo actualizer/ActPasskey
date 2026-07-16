@@ -1,12 +1,7 @@
 {% sw_extends '@Storefront/storefront/component/account/login.html.twig' %}
 
-{# This block is replaced instead of extended, which is a deliberate trade-off:
-   the core wraps its submit button in `.login-submit` without an inner block,
-   so appending after parent() can only ever put the passkey button on its own
-   line. Placing both buttons in one row means owning the row — the core button
-   below is therefore a verbatim copy and has to be kept in sync when the core
-   changes it. Layout is Bootstrap utilities only, so the plugin still ships no
-   stylesheet. #}
+{# The core offers no inner block here, so this replaces the whole one: the
+   submit button below is a copy of the core's and has to be kept in sync. #}
 {% block component_account_login_submit %}
     <div class="login-submit d-flex flex-wrap align-items-center gap-2">
         <button type="submit"
@@ -14,9 +9,8 @@
             {{ 'account.loginSubmit'|trans|sw_sanitize }}
         </button>
 
-        {# Stays hidden until the JS plugin confirms WebAuthn support, which is
-           why the "or" belongs in here: without passkey support neither the
-           separator nor the button may appear. #}
+        {# Hidden until the JS plugin confirms WebAuthn support — hence the "or"
+           sits in here too. #}
         <div class="act-passkey-login d-flex flex-wrap align-items-center gap-2"
              data-act-passkey-login
              data-challenge-url="{{ path('frontend.account.login.passkey.challenge') }}"
@@ -35,9 +29,8 @@
                 {{ 'act-passkey.login.button'|trans }}
             </button>
 
-            {# w-100 breaks the alert onto its own line below the buttons; it has
-               to stay inside this container because the JS plugin resolves it
-               relative to its root element. #}
+            {# Must stay inside this container: the JS plugin looks it up from
+               its root element. #}
             <div class="act-passkey-login__error alert alert-danger w-100 mt-2"
                  data-act-passkey-login-error
                  hidden></div>

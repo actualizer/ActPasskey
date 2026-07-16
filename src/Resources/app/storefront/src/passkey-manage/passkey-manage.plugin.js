@@ -1,22 +1,17 @@
 const Plugin = window.PluginBaseClass;
 
 /**
- * Drives the "add a passkey" ceremony on the customer account profile page:
- * feature-detects WebAuthn support (hides the add-passkey form otherwise —
- * rename/delete need no WebAuthn and stay fully usable, spec §2.7), fetches
- * registration options from the challenge endpoint, resolves
- * `navigator.credentials.create()`, then submits the attestation plus the
- * password step-up field as a real form POST so the server's redirect
- * performs a normal browser navigation back to the profile page.
+ * Adds a passkey on the customer account profile page.
  *
- * Mirrors passkey-login.plugin.js for the fetch/submit style and the admin
- * sw-profile-index-general registration flow for the WebAuthn options
- * shaping (excludeCredentials, user.id conversion) — same ceremony, just
- * driven by a real form submit instead of the admin's Vue component.
+ * Without WebAuthn support the add form stays hidden; rename and delete need no
+ * WebAuthn and remain usable. The attestation goes out as a real form POST so
+ * the server's redirect is a normal browser navigation.
  */
 export default class PasskeyManage extends Plugin {
     init() {
         this.registerWrapper = this.el.querySelector('[data-act-passkey-manage-register]');
+        this.startButton = this.el.querySelector('[data-act-passkey-manage-start]');
+        this.cancelButton = this.el.querySelector('[data-act-passkey-manage-cancel]');
         this.form = this.el.querySelector('[data-act-passkey-manage-form]');
         this.passwordInput = this.el.querySelector('[data-act-passkey-manage-password]');
         this.errorBox = this.el.querySelector('[data-act-passkey-manage-error]');
@@ -24,22 +19,93 @@ export default class PasskeyManage extends Plugin {
         this.registerUrl = this.el.dataset.registerUrl;
         this.errorText = this.el.dataset.errorText || '';
 
+        this._initItems();
+
         if (!window.PublicKeyCredential || !this.registerWrapper || !this.form || !this.challengeUrl || !this.registerUrl) {
-            // No WebAuthn support (or markup incomplete) -> leave the
-            // add-passkey form hidden, rename/delete stay fully usable.
             return;
         }
 
         this.registerWrapper.hidden = false;
         this.form.addEventListener('submit', this._onSubmit.bind(this));
+        this.startButton?.addEventListener('click', this._onStart.bind(this));
+        this.cancelButton?.addEventListener('click', this._onCancel.bind(this));
+    }
+
+    // Runs before the WebAuthn check above: renaming and deleting need no
+    // authenticator and stay available when the browser cannot do passkeys.
+    _initItems() {
+        this.el.querySelectorAll('[data-act-passkey-item]').forEach((item) => {
+            const actions = item.querySelector('[data-act-passkey-item-actions]');
+            const renameForm = item.querySelector('[data-act-passkey-rename-form]');
+            const deleteForm = item.querySelector('[data-act-passkey-delete-form]');
+            const renameCancel = item.querySelector('[data-act-passkey-rename-cancel]');
+            const deleteCancel = item.querySelector('[data-act-passkey-delete-cancel]');
+
+            if (!actions || !renameForm || !deleteForm) {
+                return;
+            }
+
+            const collapse = () => {
+                renameForm.hidden = true;
+                deleteForm.hidden = true;
+                actions.hidden = false;
+            };
+
+            const expand = (form) => {
+                renameForm.hidden = true;
+                deleteForm.hidden = true;
+                form.hidden = false;
+                actions.hidden = true;
+                form.querySelector('input')?.focus();
+            };
+
+            collapse();
+
+            if (renameCancel) {
+                renameCancel.hidden = false;
+                renameCancel.addEventListener('click', collapse);
+            }
+
+            if (deleteCancel) {
+                deleteCancel.hidden = false;
+                deleteCancel.addEventListener('click', collapse);
+            }
+
+            item.querySelector('[data-act-passkey-rename-toggle]')
+                ?.addEventListener('click', () => expand(renameForm));
+            item.querySelector('[data-act-passkey-delete-toggle]')
+                ?.addEventListener('click', () => expand(deleteForm));
+        });
+    }
+
+    _onStart() {
+        this._hideError();
+        this.form.hidden = false;
+
+        if (this.startButton) {
+            this.startButton.hidden = true;
+        }
+
+        this.passwordInput?.focus();
+    }
+
+    _onCancel() {
+        this._hideError();
+        this.form.hidden = true;
+
+        if (this.passwordInput) {
+            this.passwordInput.value = '';
+        }
+
+        if (this.startButton) {
+            this.startButton.hidden = false;
+        }
     }
 
     async _onSubmit(event) {
         event.preventDefault();
         this._hideError();
 
-        const nameInput = this.form.querySelector('input[name="name"]');
-        const name = nameInput ? nameInput.value : '';
         const password = this.passwordInput.value;
 
         try {
@@ -87,16 +153,15 @@ export default class PasskeyManage extends Plugin {
                     : {},
             };
 
-            this._submitRegistration(attestation, challengeId, name, password);
+            this._submitRegistration(attestation, challengeId, password);
         } catch {
-            // User cancelled the WebAuthn prompt, no authenticator available,
-            // or the challenge fetch failed -> never leave the user stuck,
-            // show an inline error and let them retry.
+            // Cancelled prompt, no authenticator, or a failed fetch.
             this._showError();
         }
     }
 
-    _submitRegistration(attestation, challengeId, name, password) {
+    // Without a name the server labels the credential "Passkey".
+    _submitRegistration(attestation, challengeId, password) {
         const form = document.createElement('form');
         form.method = 'post';
         form.action = this.registerUrl;
@@ -111,7 +176,6 @@ export default class PasskeyManage extends Plugin {
         };
         addField('passkey_response', JSON.stringify(attestation));
         addField('passkey_challenge_id', challengeId);
-        addField('name', name);
         addField('password', password);
 
         document.body.appendChild(form);
