@@ -17,7 +17,8 @@
             "columnName": "Name",
             "columnCreatedAt": "Created at",
             "columnLastUsedAt": "Last used",
-            "neverUsed": "Never used"
+            "neverUsed": "Never used",
+            "adminRealmSuffix": "(Administration)"
         }
     }
 }

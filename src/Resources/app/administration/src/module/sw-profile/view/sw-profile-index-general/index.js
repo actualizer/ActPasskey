@@ -158,8 +158,15 @@ Component.override('sw-profile-index-general', {
             }
 
             this.isPasskeyLoading = true;
+            // What the browser's passkey manager shows as the account. The email is
+            // unambiguous (`username` is often a bare first name), and the realm
+            // suffix keeps an admin passkey apart from a customer passkey the same
+            // person may hold: both live on the same RP-ID, so without it the
+            // chooser would show two identical entries. Purely a label — the server
+            // resolves the account from the stored credential row, never from this.
             const displayName = `${this.user.firstName} ${this.user.lastName}`.trim();
-            const userName = this.user.username;
+            const account = this.user.email || this.user.username;
+            const userName = `${account} ${this.$t('act-passkey.manage.adminRealmSuffix')}`;
 
             try {
                 const { options, challengeId } = await this.passkeyApiService.registerChallenge(
