@@ -95,8 +95,23 @@ class PasskeyManageStoreApiController
         CustomerEntity $customer
     ): JsonResponse {
         $this->guard->assertEligible($customer);
+
+        // ensureAccepted() before validatePassword(): see register() for why the
+        // password check must never run unthrottled.
+        $rateLimitKey = $customer->getId() . '-' . (string) $request->getClientIp();
+
+        try {
+            $this->rateLimiter->ensureAccepted('act_passkey_register', $rateLimitKey);
+        } catch (RateLimitExceededException $exception) {
+            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
+        }
+
         $this->validatePassword($data, $context);
 
+        // Deliberately NO reset() here, unlike register(): createOptions() has no
+        // throwing failure path (UnsupportedHostException aside, which is not an
+        // auth-oracle result), so a reset would run unconditionally on every call
+        // and the bucket could never accumulate — the throttle would be inert.
         try {
             $result = $this->registrationCeremony->createOptions(
                 Realm::Customer,

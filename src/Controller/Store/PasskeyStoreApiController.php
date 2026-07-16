@@ -16,9 +16,12 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Store-api passkey login: hands out a usernameless WebAuthn request-options
  * payload (challenge) and, after the browser responds, verifies the
- * assertion at the CUSTOMER realm and establishes the customer session via
- * AccountService::loginById (no password check — the passkey assertion IS
- * the credential). Both routes are pre-login (auth_required=false).
+ * assertion at the CUSTOMER realm via CustomerPasskeyLoginService. That
+ * service applies CustomerEligibilityGuard (active + confirmed double
+ * opt-in) before calling AccountService::loginById, so a session is only
+ * ever issued for an account that may actually log in — no password check
+ * is involved, but eligibility still is. Both routes are pre-login
+ * (auth_required=false).
  */
 #[Route(defaults: ['_routeScope' => ['store-api'], 'auth_required' => false])]
 class PasskeyStoreApiController

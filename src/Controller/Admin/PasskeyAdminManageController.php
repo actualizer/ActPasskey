@@ -121,18 +121,26 @@ class PasskeyAdminManageController
         // displayName/userName only label the credential in the browser's
         // passkey manager; they are not part of what the assertion signs, so
         // they cannot affect whether verification succeeds.
-        $this->registrationCeremony->verify(
-            Realm::Admin,
-            $userId,
-            $response,
-            $challengeId,
-            $request->getHost(),
-            is_string($name) && $name !== '' ? $name : 'Passkey',
-            $context,
-            $this->displayName($request),
-            $this->userName($request),
-        );
+        try {
+            $this->registrationCeremony->verify(
+                Realm::Admin,
+                $userId,
+                $response,
+                $challengeId,
+                $request->getHost(),
+                is_string($name) && $name !== '' ? $name : 'Passkey',
+                $context,
+                $this->displayName($request),
+                $this->userName($request),
+            );
+        } catch (\Throwable $exception) {
+            // \Throwable, not the library's verification exception: webauthn-lib's
+            // CounterException does not extend it, so a narrower catch would leak a 500.
+            throw new AccessDeniedHttpException('Passkey registration failed', $exception);
+        }
 
+        // reset() is correct here (unlike delete): verify() throws on every failure
+        // path, so this line is only reached after a genuinely successful enrollment.
         $this->rateLimiter->reset('act_passkey_register', $rateLimitKey);
 
         return new Response(null, Response::HTTP_NO_CONTENT);
