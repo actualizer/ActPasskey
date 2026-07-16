@@ -15,5 +15,16 @@
         <service id="Actualize\Passkey\WebAuthn\Credential\UserHandleProvider" public="true">
             <argument type="service" id="act_passkey_user_handle.repository"/>
         </service>
+
+        <!-- Second argument (broaden-parent) is intentionally `null` for Phase 1: no
+             configured RP-ID broadening yet. The bare `<argument>null</argument>` (no
+             type attribute) goes through XmlFileLoader's default branch, which calls
+             XmlUtils::phpize() on the node text; phpize() maps the literal string
+             "null" to a real PHP null, not the string "null". Verified via
+             `debug:container` (see task report) that the service instantiates. -->
+        <service id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver" public="true">
+            <argument type="string">%env(APP_URL)%</argument>
+            <argument>null</argument>
+        </service>
     </services>
 </container>
