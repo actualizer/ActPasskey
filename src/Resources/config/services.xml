@@ -4,5 +4,8 @@
            xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <services>
+        <service id="Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialDefinition">
+            <tag name="shopware.entity.definition" entity="act_passkey_credential"/>
+        </service>
     </services>
 </container>
