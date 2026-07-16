@@ -140,6 +140,30 @@ final class CeremonyRoundTripTest extends TestCase
         $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx);
     }
 
+    public function testAssertionCanTargetAnEarlierEnrolledCredential(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        $first = $this->enrollAndReturnCredentialId($reg, $ctx, $accountId, 'First key');
+        $this->enrollAndReturnCredentialId($reg, $ctx, $accountId, 'Second key');
+
+        $request = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $assertion = SoftwareAuthenticator::respondToGet($request['options'], $this->origin, 1, $first);
+
+        $resolved = $auth->verify(
+            Realm::Admin,
+            $assertion,
+            $request['challengeId'],
+            $this->host,
+            $ctx
+        );
+
+        self::assertSame($accountId, $resolved);
+    }
+
     public function testCreateOptionsCarriesTheHumanReadableDisplayName(): void
     {
         $reg = $this->getContainer()->get(RegistrationCeremony::class);
@@ -161,6 +185,24 @@ final class CeremonyRoundTripTest extends TestCase
         self::assertSame('Ada Lovelace', $options['user']['displayName']);
         // The user handle must stay opaque random bytes — never the email/name.
         self::assertNotSame('ada@example.com', $options['user']['id']);
+    }
+
+    /**
+     * Enrolls a credential for the given account via a real create+verify round
+     * trip and returns its base64url credential id, so a later assertion can
+     * target this specific key instead of whichever one was enrolled last.
+     */
+    private function enrollAndReturnCredentialId(
+        RegistrationCeremony $reg,
+        Context $ctx,
+        string $accountId,
+        string $name
+    ): string {
+        $create = $reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx);
+        $attestation = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin);
+        $reg->verify(Realm::Admin, $accountId, $attestation, $create['challengeId'], $this->host, $name, $ctx);
+
+        return SoftwareAuthenticator::lastCredentialId();
     }
 
     /**

@@ -27,6 +27,8 @@ final class SoftwareAuthenticator
     /** @var array<string, array{pem: string, userHandle: string}> */
     private static array $registry = [];
 
+    private static string $lastCredentialId = '';
+
     /**
      * @return string JSON of the browser PublicKeyCredential (attestation)
      */
@@ -69,7 +71,8 @@ final class SoftwareAuthenticator
 
         $clientDataJson = self::clientDataJson('webauthn.create', $challenge, $origin);
 
-        self::$registry[self::b64uEncode($credentialId)] = [
+        self::$lastCredentialId = self::b64uEncode($credentialId);
+        self::$registry[self::$lastCredentialId] = [
             'pem' => (string) $pem,
             'userHandle' => $userHandle,
         ];
@@ -88,18 +91,25 @@ final class SoftwareAuthenticator
     /**
      * @return string JSON of the browser PublicKeyCredential (assertion)
      */
-    public static function respondToGet(string $optionsJson, string $origin, int $signCount = 1): string
-    {
+    public static function respondToGet(
+        string $optionsJson,
+        string $origin,
+        int $signCount = 1,
+        ?string $credentialId = null
+    ): string {
         /** @var array{challenge: string, rpId: string} $options */
         $options = json_decode($optionsJson, true, 512, JSON_THROW_ON_ERROR);
 
         $challenge = self::b64uDecode($options['challenge']);
         $rpId = $options['rpId'];
 
-        if (self::$registry === []) {
-            throw new RuntimeException('No registered credential to sign with.');
+        // Default to the newest credential so existing single-credential callers are
+        // unaffected; an explicit id lets multi-credential tests pick a specific key.
+        $handle = $credentialId ?? array_key_last(self::$registry);
+        if ($handle === null || !isset(self::$registry[$handle])) {
+            throw new RuntimeException('Unknown credential id for assertion.');
         }
-        $credentialIdB64u = array_key_last(self::$registry);
+        $credentialIdB64u = $handle;
         $entry = self::$registry[$credentialIdB64u];
         $credentialId = self::b64uDecode($credentialIdB64u);
 
@@ -130,9 +140,19 @@ final class SoftwareAuthenticator
         ], JSON_THROW_ON_ERROR);
     }
 
+    public static function lastCredentialId(): string
+    {
+        if (self::$lastCredentialId === '') {
+            throw new RuntimeException('No credential has been created yet.');
+        }
+
+        return self::$lastCredentialId;
+    }
+
     public static function reset(): void
     {
         self::$registry = [];
+        self::$lastCredentialId = '';
     }
 
     private static function attestedCredentialData(string $credentialId, string $cosePublicKey): string
