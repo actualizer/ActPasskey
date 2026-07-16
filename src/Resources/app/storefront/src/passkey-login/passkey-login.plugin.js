@@ -70,7 +70,7 @@ export default class PasskeyLogin extends Plugin {
             };
 
             this._submitAssertion(assertion, challengeId);
-        } catch (err) {
+        } catch {
             // User cancelled the WebAuthn prompt, no credential available,
             // or the challenge fetch failed -> never leave the user stuck,
             // show an inline error and let them fall back to the password form.
