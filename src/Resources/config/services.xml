@@ -91,6 +91,15 @@
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
         </service>
 
+        <!-- Store-api passkey login (challenge + login, both pre-login /
+             auth_required=false): verifies a CUSTOMER-realm assertion and
+             establishes the session via AccountService::loginById. -->
+        <service id="Actualize\Passkey\Controller\Store\PasskeyStoreApiController" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
+            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\AccountService"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
         <service id="Actualize\Passkey\OAuth\PasskeyGrant">
             <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
