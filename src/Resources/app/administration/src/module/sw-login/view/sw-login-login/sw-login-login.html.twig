@@ -1,0 +1,17 @@
+{% block sw_login_login_submit %}
+    {% parent() %}
+
+    {% block act_passkey_login_submit %}
+        <div class="act-passkey-login">
+            <mt-button
+                class="act-passkey-login__button"
+                variant="secondary"
+                size="default"
+                :block="true"
+                @click.prevent="onPasskeyLogin"
+            >
+                {{ $t('act-passkey.login.button') }}
+            </mt-button>
+        </div>
+    {% endblock %}
+{% endblock %}

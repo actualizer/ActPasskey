@@ -1,0 +1,92 @@
+/**
+ * Decorates the core `loginService` with `loginByPasskey()` so a usernameless
+ * WebAuthn login yields an identical admin session as the password flow
+ * (same `setBearerAuthentication` call, same cookie/refresh handling).
+ */
+const { Application } = Shopware;
+
+function base64UrlToBuffer(value) {
+    const padding = '='.repeat((4 - (value.length % 4)) % 4);
+    const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(base64);
+    const buffer = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+        buffer[i] = binary.charCodeAt(i);
+    }
+    return buffer.buffer;
+}
+
+function bufferToBase64Url(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 1) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+Application.addServiceProviderDecorator('loginService', (loginService) => {
+    const httpClient = Application.getContainer('init').httpClient;
+    const context = Shopware.Context.api;
+
+    loginService.loginByPasskey = async function loginByPasskey() {
+        if (!window.PublicKeyCredential) {
+            throw new Error('passkey-unsupported');
+        }
+
+        // 1) request a usernameless challenge from the server
+        const challengeResponse = await httpClient.post(
+            '/_action/act-passkey/admin/login-challenge',
+            {},
+            { baseURL: context.apiPath },
+        );
+        const { options, challengeId } = challengeResponse.data;
+
+        // 2) decode the base64url-encoded fields for navigator.credentials.get
+        const publicKey = {
+            ...options,
+            challenge: base64UrlToBuffer(options.challenge),
+            allowCredentials: (options.allowCredentials || []).map((credential) => ({
+                ...credential,
+                id: base64UrlToBuffer(credential.id),
+            })),
+        };
+
+        const credential = await navigator.credentials.get({ publicKey });
+
+        // 3) serialize the assertion into the JSON shape the server's WebauthnSerializer expects
+        const assertion = {
+            id: credential.id,
+            rawId: bufferToBase64Url(credential.rawId),
+            type: credential.type,
+            response: {
+                clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                authenticatorData: bufferToBase64Url(credential.response.authenticatorData),
+                signature: bufferToBase64Url(credential.response.signature),
+                userHandle: credential.response.userHandle ? bufferToBase64Url(credential.response.userHandle) : null,
+            },
+            clientExtensionResults: credential.getClientExtensionResults ? credential.getClientExtensionResults() : {},
+        };
+
+        // 4) exchange the verified assertion for an admin access token via the passkey grant
+        const tokenResponse = await httpClient.post(
+            '/oauth/token',
+            {
+                grant_type: 'passkey',
+                client_id: 'administration',
+                scope: 'write',
+                passkey_response: JSON.stringify(assertion),
+                passkey_challenge_id: challengeId,
+            },
+            { baseURL: context.apiPath },
+        );
+
+        return loginService.setBearerAuthentication({
+            access: tokenResponse.data.access_token,
+            refresh: tokenResponse.data.refresh_token,
+            expiry: tokenResponse.data.expires_in,
+        });
+    };
+
+    return loginService;
+});

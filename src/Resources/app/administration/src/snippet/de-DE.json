@@ -1,0 +1,8 @@
+{
+    "act-passkey": {
+        "login": {
+            "button": "Anmeldung mit einem Passkey",
+            "error": "Passkey-Anmeldung fehlgeschlagen."
+        }
+    }
+}
