@@ -16,6 +16,12 @@
             <argument type="service" id="act_passkey_user_handle.repository"/>
         </service>
 
+        <!-- Realm-scoped, IDOR-safe credential lookup/save/delete. deleteOwned's
+             combined id + realm + owner WHERE is the IDOR defense — never weaken it. -->
+        <service id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository" public="true">
+            <argument type="service" id="act_passkey_credential.repository"/>
+        </service>
+
         <!-- Clock service id resolved via `debug:container clock`: `Psr\Clock\ClockInterface`
              and `Symfony\Component\Clock\ClockInterface` are both private aliases for the
              `clock` service (Symfony\Component\Clock\Clock). Referencing a private alias as
