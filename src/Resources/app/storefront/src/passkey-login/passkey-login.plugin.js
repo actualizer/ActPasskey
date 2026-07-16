@@ -94,8 +94,27 @@ export default class PasskeyLogin extends Plugin {
         addField('passkey_response', JSON.stringify(assertion));
         addField('passkey_challenge_id', challengeId);
 
+        // Carry the surrounding password-login form's redirectTo/redirectParameters
+        // along, so a passkey login from checkout/product-review cards returns the
+        // user to where they were instead of bouncing them to the account home page.
+        this._carryRedirectFields(addField);
+
         document.body.appendChild(form);
         form.submit();
+    }
+
+    _carryRedirectFields(addField) {
+        const loginForm = this.el.closest('form');
+        if (!loginForm) {
+            return;
+        }
+
+        ['redirectTo', 'redirectParameters'].forEach((name) => {
+            const field = loginForm.querySelector(`input[name="${name}"]`);
+            if (field && field.value !== '') {
+                addField(name, field.value);
+            }
+        });
     }
 
     _showError() {

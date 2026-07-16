@@ -63,6 +63,17 @@ class PasskeyStorefrontController extends StorefrontController
             return $this->forwardToRoute('frontend.account.login.page', ['loginError' => true], []);
         }
 
+        // Mirrors AuthController::login: honors the redirectTo/redirectParameters
+        // carried over from the surrounding login form (checkout guest-login,
+        // product-review login card, ...) instead of always bouncing to the
+        // account home page. createActionResponse() falls back to an empty
+        // Response when neither redirectTo nor forwardTo is present on the
+        // request, so keep the account-home redirect as an explicit fallback
+        // for that case.
+        if ($request->request->has('redirectTo') || $request->query->has('redirectTo')) {
+            return $this->createActionResponse($request);
+        }
+
         return $this->redirectToRoute('frontend.account.home.page');
     }
 }

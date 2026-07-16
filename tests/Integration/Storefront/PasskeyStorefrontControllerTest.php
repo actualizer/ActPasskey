@@ -86,6 +86,31 @@ final class PasskeyStorefrontControllerTest extends TestCase
         self::assertSame(200, $accountResponse->getStatusCode(), (string) $accountResponse->getContent());
     }
 
+    /**
+     * Mirrors the stock component/account/login.html.twig hidden `redirectTo`
+     * field: a passkey login triggered from checkout/product-review must
+     * return the user to that redirectTo target instead of always bouncing
+     * to the account home page (PasskeyStorefrontController::login() now
+     * delegates to createActionResponse(), same as AuthController::login()).
+     */
+    public function testCustomerCanLoginWithRedirectToTargetIsHonored(): void
+    {
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer();
+        $this->registerPasskey($customerId, $ctx);
+
+        [$assertion, $challengeId] = $this->buildAssertion($ctx);
+
+        $loginResponse = $this->request('POST', 'account/login/passkey', [
+            'passkey_response' => $assertion,
+            'passkey_challenge_id' => $challengeId,
+            'redirectTo' => 'frontend.account.profile.page',
+        ]);
+
+        self::assertSame(302, $loginResponse->getStatusCode(), (string) $loginResponse->getContent());
+        self::assertStringContainsString('/account/profile', (string) $loginResponse->headers->get('Location'));
+    }
+
     public function testBogusChallengeIdForwardsToLoginPageWithoutLoggingIn(): void
     {
         $ctx = Context::createDefaultContext();
