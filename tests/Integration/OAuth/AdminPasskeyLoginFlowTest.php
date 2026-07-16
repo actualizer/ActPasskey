@@ -80,6 +80,106 @@ final class AdminPasskeyLoginFlowTest extends TestCase
         self::assertNotEmpty($data['access_token']);
     }
 
+    /**
+     * The admin refreshes its token with a hardcoded `scope=write` and league rejects any scope
+     * the refresh token lacks, so a passkey token without `write` logs the user straight out.
+     */
+    public function testPasskeyTokenCarriesWriteAndCanBeRefreshed(): void
+    {
+        $ctx = Context::createDefaultContext();
+        $adminUserId = $this->createAdminUser();
+
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $create = $reg->createOptions(Realm::Admin, $adminUserId, $this->host, $ctx);
+        $reg->verify(
+            Realm::Admin,
+            $adminUserId,
+            SoftwareAuthenticator::respondToCreate($create['options'], $this->origin),
+            $create['challengeId'],
+            $this->host,
+            'Test Key',
+            $ctx
+        );
+
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $assertion = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+
+        $login = $this->requestToken([
+            'grant_type' => 'passkey',
+            'client_id' => 'administration',
+            'scope' => 'write',
+            'passkey_response' => $assertion,
+            'passkey_challenge_id' => $req['challengeId'],
+        ]);
+        self::assertSame(200, $login->getStatusCode(), (string) $login->getContent());
+        $tokens = json_decode((string) $login->getContent(), true);
+        self::assertIsArray($tokens);
+
+        self::assertContains('write', $this->readScopes((string) $tokens['access_token']));
+
+        $refresh = $this->requestToken([
+            'grant_type' => 'refresh_token',
+            'client_id' => 'administration',
+            'scope' => 'write',
+            'refresh_token' => $tokens['refresh_token'],
+        ]);
+
+        self::assertSame(200, $refresh->getStatusCode(), (string) $refresh->getContent());
+    }
+
+    /**
+     * A passkey login must never hand out the step-up scope, or it would bypass the password
+     * confirmation that guards profile changes.
+     */
+    public function testPasskeyTokenNeverCarriesTheUserVerifiedScope(): void
+    {
+        $ctx = Context::createDefaultContext();
+        $adminUserId = $this->createAdminUser();
+
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $create = $reg->createOptions(Realm::Admin, $adminUserId, $this->host, $ctx);
+        $reg->verify(
+            Realm::Admin,
+            $adminUserId,
+            SoftwareAuthenticator::respondToCreate($create['options'], $this->origin),
+            $create['challengeId'],
+            $this->host,
+            'Test Key',
+            $ctx
+        );
+
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $assertion = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+
+        $response = $this->requestToken([
+            'grant_type' => 'passkey',
+            'client_id' => 'administration',
+            'scope' => 'user-verified',
+            'passkey_response' => $assertion,
+            'passkey_challenge_id' => $req['challengeId'],
+        ]);
+
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $tokens = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($tokens);
+        self::assertNotContains('user-verified', $this->readScopes((string) $tokens['access_token']));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function readScopes(string $jwt): array
+    {
+        [, $payload] = explode('.', $jwt);
+        $claims = json_decode((string) base64_decode(strtr($payload, '-_', '+/'), true), true);
+        self::assertIsArray($claims);
+        self::assertIsArray($claims['scopes'] ?? null);
+
+        return $claims['scopes'];
+    }
+
     public function testLoginChallengeRouteReturnsOptionsAndChallengeId(): void
     {
         $browser = KernelLifecycleManager::createBrowser(KernelLifecycleManager::getKernel());

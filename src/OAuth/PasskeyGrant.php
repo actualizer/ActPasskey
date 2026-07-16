@@ -9,6 +9,7 @@ use League\OAuth2\Server\Grant\AbstractGrant;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Shopware\Core\Framework\Api\OAuth\Scope\WriteScope;
 use Shopware\Core\Framework\Api\OAuth\User\User;
 use Shopware\Core\Framework\Context;
 
@@ -51,6 +52,11 @@ class PasskeyGrant extends AbstractGrant
             $client,
             $userIdentifier
         );
+
+        // Core keeps `write` only for the password and SSO grants and strips it from every other
+        // one. The admin's token refresh hardcodes scope=write, and league rejects any scope the
+        // refresh token lacks — without this, every refresh 400s and logs the user out.
+        $finalizedScopes[] = new WriteScope();
 
         $accessToken = $this->issueAccessToken($accessTokenTTL, $client, $userIdentifier, $finalizedScopes);
         $responseType->setAccessToken($accessToken);
