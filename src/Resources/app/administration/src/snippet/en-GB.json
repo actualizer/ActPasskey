@@ -3,6 +3,19 @@
         "login": {
             "button": "Sign in with a passkey",
             "error": "Passkey sign-in failed."
+        },
+        "manage": {
+            "title": "Passkeys",
+            "register": "Register new passkey",
+            "rename": "Rename",
+            "delete": "Remove",
+            "renamePrompt": "Name",
+            "empty": "No passkeys have been registered yet.",
+            "registerSuccess": "Passkey registered.",
+            "deleteSuccess": "Passkey removed.",
+            "error": "The request could not be completed.",
+            "columnName": "Name",
+            "columnCreatedAt": "Created at"
         }
     }
 }

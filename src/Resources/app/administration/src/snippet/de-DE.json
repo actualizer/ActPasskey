@@ -3,6 +3,19 @@
         "login": {
             "button": "Anmeldung mit einem Passkey",
             "error": "Passkey-Anmeldung fehlgeschlagen."
+        },
+        "manage": {
+            "title": "Passkeys",
+            "register": "Passkey hinzufügen",
+            "rename": "Umbenennen",
+            "delete": "Passkey entfernen",
+            "renamePrompt": "Name",
+            "empty": "Es sind noch keine Passkeys registriert.",
+            "registerSuccess": "Passkey registriert.",
+            "deleteSuccess": "Passkey entfernt.",
+            "error": "Die Anfrage konnte nicht abgeschlossen werden.",
+            "columnName": "Name",
+            "columnCreatedAt": "Erstellt am"
         }
     }
 }

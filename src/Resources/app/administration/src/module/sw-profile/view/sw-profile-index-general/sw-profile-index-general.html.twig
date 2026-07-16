@@ -1,0 +1,103 @@
+{% block sw_profile_index_general %}
+    {% parent() %}
+
+    {% block act_passkey_profile_card %}
+        <mt-card
+            position-identifier="act-passkey-profile"
+            :title="$t('act-passkey.manage.title')"
+            :is-loading="isPasskeyLoading"
+        >
+            {% block act_passkey_profile_card_grid %}
+            <sw-data-grid
+                v-if="passkeys.length > 0"
+                :dataSource="passkeys"
+                :columns="passkeyColumns"
+                :showSelection="false"
+                :showActions="true"
+            >
+                <template #actions="{ item }">
+                    {% block act_passkey_profile_card_action_rename %}
+                    <sw-context-menu-item @click="onPasskeyRename(item)">
+                        {{ $t('act-passkey.manage.rename') }}
+                    </sw-context-menu-item>
+                    {% endblock %}
+
+                    {% block act_passkey_profile_card_action_delete %}
+                    <sw-context-menu-item variant="danger" @click="onPasskeyDelete(item)">
+                        {{ $t('act-passkey.manage.delete') }}
+                    </sw-context-menu-item>
+                    {% endblock %}
+                </template>
+            </sw-data-grid>
+            {% endblock %}
+
+            {% block act_passkey_profile_card_empty %}
+            <mt-empty-state
+                v-else
+                :headline="$t('act-passkey.manage.empty')"
+            />
+            {% endblock %}
+
+            <template #footer>
+                {% block act_passkey_profile_card_register_button %}
+                <mt-button
+                    v-if="isWebAuthnSupported"
+                    variant="primary"
+                    :is-loading="isPasskeyLoading"
+                    @click="onPasskeyRegister"
+                >
+                    {{ $t('act-passkey.manage.register') }}
+                </mt-button>
+                {% endblock %}
+            </template>
+        </mt-card>
+    {% endblock %}
+
+    {% block act_passkey_profile_rename_modal %}
+        <sw-modal
+            v-if="passkeyRenameItem"
+            :title="$t('act-passkey.manage.rename')"
+            variant="small"
+            @modal-close="onPasskeyRenameCancel"
+        >
+            {% block act_passkey_profile_rename_modal_field %}
+            <mt-text-field
+                v-model="passkeyRenameValue"
+                name="act-passkey-rename-name"
+                :label="$t('act-passkey.manage.renamePrompt')"
+            />
+            {% endblock %}
+
+            <template #modal-footer>
+                {% block act_passkey_profile_rename_modal_cancel %}
+                <mt-button
+                    size="small"
+                    variant="secondary"
+                    @click="onPasskeyRenameCancel"
+                >
+                    {{ $t('global.default.cancel') }}
+                </mt-button>
+                {% endblock %}
+
+                {% block act_passkey_profile_rename_modal_confirm %}
+                <mt-button
+                    size="small"
+                    variant="primary"
+                    :disabled="!passkeyRenameValue"
+                    @click="onPasskeyRenameConfirm"
+                >
+                    {{ $t('act-passkey.manage.rename') }}
+                </mt-button>
+                {% endblock %}
+            </template>
+        </sw-modal>
+    {% endblock %}
+
+    {% block act_passkey_profile_verify_modal %}
+        <sw-verify-user-modal
+            v-if="passkeyVerifyModalOpen"
+            @verified="onPasskeyVerified"
+            @close="onPasskeyVerifyClosed"
+        />
+    {% endblock %}
+{% endblock %}
