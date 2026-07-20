@@ -3,7 +3,10 @@
 namespace Actualize\Passkey\Entity\PasskeyCredential;
 
 use Shopware\Core\Checkout\Customer\CustomerDefinition;
+use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityProtection\EntityProtectionCollection;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityProtection\WriteProtection;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\BlobField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\CreatedAtField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\DateTimeField;
@@ -36,6 +39,19 @@ class PasskeyCredentialDefinition extends EntityDefinition
     public function getCollectionClass(): string
     {
         return PasskeyCredentialCollection::class;
+    }
+
+    /**
+     * A row here IS an authentication factor: an insert with a foreign userId and an
+     * attacker-held public key is a silent passkey enrollment that bypasses every check
+     * in the manage controllers. The generic /api CRUD routes exist for every registered
+     * definition, so the write path must be closed at the definition — same reasoning as
+     * core's UserDefinition. Writes therefore only pass in system scope; see
+     * CredentialRepository, which is the only place that may open it.
+     */
+    protected function defineProtections(): EntityProtectionCollection
+    {
+        return new EntityProtectionCollection([new WriteProtection(Context::SYSTEM_SCOPE)]);
     }
 
     protected function defineFields(): FieldCollection

@@ -27,12 +27,14 @@ final class UserHandleProvider
         }
 
         $handle = random_bytes(32);
-        $this->userHandleRepository->create([[
+
+        // The definition denies writes outside system scope; this is the only sanctioned way in.
+        $context->scope(Context::SYSTEM_SCOPE, fn (Context $systemContext) => $this->userHandleRepository->create([[
             'id' => Uuid::randomHex(),
             'realm' => $realm->value,
             'accountId' => $accountId,
             'userHandle' => $handle,
-        ]], $context);
+        ]], $systemContext));
 
         return $handle;
     }

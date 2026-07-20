@@ -31,11 +31,19 @@ final class CredentialRepository
     }
 
     /**
+     * The definition denies writes outside system scope so the generic /api CRUD routes
+     * cannot enroll a credential. This class is the only sanctioned way in — every write
+     * below therefore opens the scope, and must only be reached after the caller has
+     * established ownership.
+     *
      * @param array<string, mixed> $data
      */
     public function save(array $data, Context $context): void
     {
-        $this->credentialRepository->upsert([$data], $context);
+        $context->scope(
+            Context::SYSTEM_SCOPE,
+            fn (Context $systemContext) => $this->credentialRepository->upsert([$data], $systemContext)
+        );
     }
 
     public function updateSignCount(
@@ -49,7 +57,10 @@ final class CredentialRepository
             $payload['lastUsedAt'] = $lastUsedAt;
         }
 
-        $this->credentialRepository->update([$payload], $context);
+        $context->scope(
+            Context::SYSTEM_SCOPE,
+            fn (Context $systemContext) => $this->credentialRepository->update([$payload], $systemContext)
+        );
     }
 
     /**
@@ -76,7 +87,10 @@ final class CredentialRepository
             return false;
         }
 
-        $this->credentialRepository->delete([['id' => $id]], $context);
+        $context->scope(
+            Context::SYSTEM_SCOPE,
+            fn (Context $systemContext) => $this->credentialRepository->delete([['id' => $id]], $systemContext)
+        );
 
         return true;
     }
@@ -87,7 +101,13 @@ final class CredentialRepository
             return false;
         }
 
-        $this->credentialRepository->update([['id' => $id, 'name' => $name]], $context);
+        $context->scope(
+            Context::SYSTEM_SCOPE,
+            fn (Context $systemContext) => $this->credentialRepository->update(
+                [['id' => $id, 'name' => $name]],
+                $systemContext
+            )
+        );
 
         return true;
     }

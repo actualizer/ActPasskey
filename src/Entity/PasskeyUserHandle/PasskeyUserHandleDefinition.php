@@ -2,7 +2,10 @@
 
 namespace Actualize\Passkey\Entity\PasskeyUserHandle;
 
+use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityProtection\EntityProtectionCollection;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityProtection\WriteProtection;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\BlobField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\CreatedAtField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\PrimaryKey;
@@ -29,6 +32,16 @@ class PasskeyUserHandleDefinition extends EntityDefinition
     public function getCollectionClass(): string
     {
         return PasskeyUserHandleCollection::class;
+    }
+
+    /**
+     * Repointing an existing handle at another accountId reassigns every credential
+     * bound to it. Closed for the same reason as the credential table; only
+     * UserHandleProvider may open the scope.
+     */
+    protected function defineProtections(): EntityProtectionCollection
+    {
+        return new EntityProtectionCollection([new WriteProtection(Context::SYSTEM_SCOPE)]);
     }
 
     protected function defineFields(): FieldCollection
