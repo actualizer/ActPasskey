@@ -2,6 +2,7 @@
 
 namespace Actualize\Passkey\Tests\Integration\Storefront;
 
+use Actualize\Passkey\Controller\Storefront\PasskeyStorefrontController;
 use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
@@ -11,8 +12,11 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory;
 use Shopware\Core\Test\TestDefaults;
 use Shopware\Storefront\Test\Controller\StorefrontControllerTestBehaviour;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Behavioural proof of the storefront passkey login controller. Unlike Task 1's
@@ -60,6 +64,28 @@ final class PasskeyStorefrontControllerTest extends TestCase
         self::assertArrayHasKey('options', $data);
         self::assertArrayHasKey('challengeId', $data);
         self::assertNotEmpty($data['challengeId']);
+    }
+
+    /**
+     * Direct controller call (no domain-based HTTP routing involved, same
+     * reasoning as CustomerPasskeyLoginRouteTest): mirrors the already-tested
+     * store-api challenge() call site — createOptions() is called the same
+     * way here, unwrapped by any broader catch, so an unsupported host must
+     * surface as the same clean 400.
+     */
+    public function testChallengeAnswers400ForAnUnsupportedHost(): void
+    {
+        $controller = $this->getContainer()->get(PasskeyStorefrontController::class);
+        $salesChannelContext = $this->getContainer()->get(SalesChannelContextFactory::class)
+            ->create(Uuid::randomHex(), TestDefaults::SALES_CHANNEL);
+
+        $request = Request::create('/account/login/passkey/challenge', 'POST', [], [], [], [
+            'HTTP_HOST' => 'evil.attacker.test',
+        ]);
+
+        $response = $controller->challenge($request, $salesChannelContext);
+
+        self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
     }
 
     public function testCustomerCanLoginWithRegisteredPasskeyAndSessionPersists(): void
