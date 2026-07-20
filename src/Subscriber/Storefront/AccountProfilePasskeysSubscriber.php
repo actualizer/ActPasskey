@@ -46,9 +46,8 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $currentRpId = $this->currentRpId($event->getRequest()->getHost(), $event->getContext());
-
         try {
+            $currentRpId = $this->currentRpId($event->getRequest()->getHost(), $event->getContext());
             $this->guard->assertEligible($customer);
             $reachable = $this->rpIdResolver->reachableRpIds($event->getContext());
             $credentials = $this->credentials->listOwned(

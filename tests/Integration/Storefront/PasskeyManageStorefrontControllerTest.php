@@ -143,12 +143,8 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
     }
 
     /**
-     * Fallback form (see class doc): overriding HTTP_HOST on the shared test
-     * browser cannot be observed here, because StorefrontControllerTestBehaviour::request()
-     * always builds a fully-qualified URI from %APP_URL%, and Symfony's
-     * Request::create() unconditionally re-derives HTTP_HOST/SERVER_NAME from a URI
-     * that already carries a host — so any HTTP_HOST override is silently discarded
-     * before it reaches the kernel. This exercises the subscriber directly instead.
+     * The harness re-derives HTTP_HOST from the fully-qualified APP_URL URI, so an
+     * unsupported host cannot be observed over HTTP; asserted at subscriber level instead.
      */
     public function testRegisterBlockIsHiddenOnAnUnsupportedHostButTheListRemains(): void
     {
