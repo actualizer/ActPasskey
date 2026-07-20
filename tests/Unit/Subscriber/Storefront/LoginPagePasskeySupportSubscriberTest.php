@@ -107,7 +107,9 @@ final class LoginPagePasskeySupportSubscriberTest extends TestCase
     {
         $events = LoginPagePasskeySupportSubscriber::getSubscribedEvents();
 
-        self::assertArrayHasKey(AccountLoginPageLoadedEvent::class, $events);
-        self::assertArrayHasKey(CheckoutRegisterPageLoadedEvent::class, $events);
+        // Pin the handler names too: a swapped mapping is only caught indirectly,
+        // via the TypeError the strictly typed handlers raise when dispatched.
+        self::assertSame('onLoginPageLoaded', $events[AccountLoginPageLoadedEvent::class] ?? null);
+        self::assertSame('onCheckoutRegisterPageLoaded', $events[CheckoutRegisterPageLoadedEvent::class] ?? null);
     }
 }
