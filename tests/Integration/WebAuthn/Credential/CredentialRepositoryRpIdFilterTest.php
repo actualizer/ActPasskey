@@ -53,6 +53,35 @@ final class CredentialRepositoryRpIdFilterTest extends TestCase
         static::assertCount(2, $repository->listOwned(Realm::Customer, $customerId, $context));
     }
 
+    public function testOrphanedRowsSurfaceButForeignLiveRowsStayHidden(): void
+    {
+        $context = Context::createCLIContext();
+        $customerId = $this->createCustomer();
+        $repository = static::getContainer()->get(CredentialRepository::class);
+        static::assertInstanceOf(CredentialRepository::class, $repository);
+
+        $this->insertCredential($customerId, 'shopa.de', 'current');
+        $this->insertCredential($customerId, 'shopb.de', 'foreign-live');
+        $this->insertCredential($customerId, 'retired.de', 'orphaned');
+        $this->insertCredential($customerId, null, 'legacy');
+
+        $names = [];
+        foreach ($repository->listOwned(
+            Realm::Customer,
+            $customerId,
+            $context,
+            'shopa.de',
+            ['shopa.de', 'shopb.de'],
+        ) as $credential) {
+            $names[] = $credential->getName();
+        }
+        sort($names);
+
+        // current channel + orphaned (rp id no longer reachable) + legacy (NULL);
+        // the foreign-but-live shopb.de row stays hidden.
+        static::assertSame(['current', 'legacy', 'orphaned'], $names);
+    }
+
     private function insertCredential(string $customerId, ?string $rpId, string $name): void
     {
         /** @var EntityRepository<\Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialCollection> $repository */

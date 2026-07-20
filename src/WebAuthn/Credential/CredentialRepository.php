@@ -9,6 +9,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotEqualsAnyFilter;
 
 final class CredentialRepository
 {
@@ -116,13 +117,19 @@ final class CredentialRepository
     /**
      * `$rpId` filters the list to the current channel. Rows without a stored rp id
      * stay visible — filtering is display logic and must never hide a credential the
-     * owner still needs to manage.
+     * owner still needs to manage. `$reachableRpIds` is the set the resolver can still
+     * return on some active domain; a row whose rp id is not in it is orphaned (its
+     * domain was retired or the broaden parent changed) and is surfaced everywhere so
+     * it does not become unmanageable.
+     *
+     * @param list<string> $reachableRpIds
      */
     public function listOwned(
         Realm $realm,
         string $accountId,
         Context $context,
-        ?string $rpId = null
+        ?string $rpId = null,
+        array $reachableRpIds = []
     ): PasskeyCredentialCollection {
         $ownerField = $realm === Realm::Admin ? 'userId' : 'customerId';
 
@@ -131,10 +138,18 @@ final class CredentialRepository
             ->addFilter(new EqualsFilter($ownerField, $accountId));
 
         if ($rpId !== null) {
-            $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, [
+            $branches = [
                 new EqualsFilter('rpId', $rpId),
                 new EqualsFilter('rpId', null),
-            ]));
+            ];
+
+            // Only add the orphan branch when the reachable set is known; NOT IN ()
+            // would otherwise match every row and defeat the channel filter.
+            if ($reachableRpIds !== []) {
+                $branches[] = new NotEqualsAnyFilter('rpId', $reachableRpIds);
+            }
+
+            $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, $branches));
         }
 
         /** @var PasskeyCredentialCollection $collection */
