@@ -357,6 +357,47 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         self::assertSame('B Key', $ownedByB->first()?->getName());
     }
 
+    public function testListSurfacesAnOrphanedCredential(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $this->enrollPasskey($customerId, 'Live Key');            // app-host rp id, reachable
+        $this->insertCredentialRow($customerId, 'retired.invalid', 'Old Key'); // orphaned
+
+        $context = $this->createCustomerContext($customerId);
+        $response = $this->controller()->list($this->buildHostRequest(), $context, $this->customerOf($context));
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        $names = array_map(static fn (array $c): string => $c['name'], $data['credentials']);
+        // The orphaned row is surfaced alongside the current-channel row.
+        self::assertContains('Old Key', $names);
+        self::assertContains('Live Key', $names);
+    }
+
+    private function insertCredentialRow(string $customerId, string $rpId, string $name): void
+    {
+        $repository = $this->getContainer()->get('act_passkey_credential.repository');
+        self::assertInstanceOf(EntityRepository::class, $repository);
+
+        Context::createDefaultContext()->scope(
+            Context::SYSTEM_SCOPE,
+            function (Context $systemContext) use ($repository, $customerId, $rpId, $name): void {
+                $repository->create([[
+                    'id' => Uuid::randomHex(),
+                    'realm' => Realm::Customer->value,
+                    'rpId' => $rpId,
+                    'customerId' => $customerId,
+                    'credentialId' => random_bytes(32),
+                    'publicKey' => random_bytes(64),
+                    'signCount' => 0,
+                    'userHandle' => random_bytes(32),
+                    'name' => $name,
+                ]], $systemContext);
+            }
+        );
+    }
+
     private function controller(): PasskeyManageStoreApiController
     {
         $controller = $this->getContainer()->get(PasskeyManageStoreApiController::class);

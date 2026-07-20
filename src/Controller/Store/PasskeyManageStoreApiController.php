@@ -68,8 +68,10 @@ class PasskeyManageStoreApiController
             // Unresolvable host: list everything rather than hide manageable credentials.
         }
 
+        $reachable = $this->rpIdResolver->reachableRpIds($context->getContext());
+
         $credentials = [];
-        foreach ($this->credentials->listOwned(Realm::Customer, $customer->getId(), $context->getContext(), $rpId) as $credential) {
+        foreach ($this->credentials->listOwned(Realm::Customer, $customer->getId(), $context->getContext(), $rpId, $reachable) as $credential) {
             $credentials[] = [
                 'id' => $credential->getId(),
                 'name' => $credential->getName(),

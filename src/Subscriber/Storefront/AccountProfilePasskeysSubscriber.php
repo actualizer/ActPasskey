@@ -2,6 +2,7 @@
 
 namespace Actualize\Passkey\Subscriber\Storefront;
 
+use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialCollection;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard;
@@ -47,11 +48,13 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
 
         try {
             $this->guard->assertEligible($customer);
+            $reachable = $this->rpIdResolver->reachableRpIds($event->getContext());
             $credentials = $this->credentials->listOwned(
                 Realm::Customer,
                 $customer->getId(),
                 $event->getContext(),
                 $this->currentRpId($event->getRequest()->getHost(), $event->getContext()),
+                $reachable,
             );
         } catch (\Throwable) {
             // A session can outlive eligibility (e.g. the account is deactivated
@@ -60,7 +63,30 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $event->getPage()->addExtension('actPasskeyCredentials', new ArrayStruct(['credentials' => $credentials]));
+        $event->getPage()->addExtension('actPasskeyCredentials', new ArrayStruct([
+            'credentials' => $credentials,
+            'orphanedIds' => $this->orphanedIds($credentials, $reachable),
+        ]));
+    }
+
+    /**
+     * Ids of credentials whose stored rp id can no longer be reached, so the template
+     * can flag them without re-deriving the reachable set.
+     *
+     * @param list<string> $reachableRpIds
+     * @return list<string>
+     */
+    private function orphanedIds(PasskeyCredentialCollection $credentials, array $reachableRpIds): array
+    {
+        $ids = [];
+        foreach ($credentials as $credential) {
+            $rpId = $credential->getRpId();
+            if ($rpId !== null && !in_array($rpId, $reachableRpIds, true)) {
+                $ids[] = $credential->getId();
+            }
+        }
+
+        return $ids;
     }
 
     /**

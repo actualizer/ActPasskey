@@ -107,6 +107,44 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
         self::assertStringContainsString('could not be completed', (string) $profileResponse->getContent());
     }
 
+    public function testOrphanedCredentialShowsTheNoteOnTheProfilePage(): void
+    {
+        $customerId = $this->createLoggedInCustomer();
+
+        $this->insertCredentialRow($customerId, 'retired.invalid', 'Old device');
+
+        $profileResponse = $this->request('GET', 'account/profile', []);
+        self::assertSame(200, $profileResponse->getStatusCode());
+
+        $body = (string) $profileResponse->getContent();
+        self::assertStringContainsString('Old device', $body);
+        // The en-GB orphaned note (the test storefront resolves the en_GB snippet set).
+        self::assertStringContainsString('no longer active', $body);
+    }
+
+    private function insertCredentialRow(string $customerId, string $rpId, string $name): void
+    {
+        $repository = $this->getContainer()->get('act_passkey_credential.repository');
+        self::assertInstanceOf(EntityRepository::class, $repository);
+
+        Context::createDefaultContext()->scope(
+            Context::SYSTEM_SCOPE,
+            function (Context $systemContext) use ($repository, $customerId, $rpId, $name): void {
+                $repository->create([[
+                    'id' => Uuid::randomHex(),
+                    'realm' => Realm::Customer->value,
+                    'rpId' => $rpId,
+                    'customerId' => $customerId,
+                    'credentialId' => random_bytes(32),
+                    'publicKey' => random_bytes(64),
+                    'signCount' => 0,
+                    'userHandle' => random_bytes(32),
+                    'name' => $name,
+                ]], $systemContext);
+            }
+        );
+    }
+
     private function credentials(): CredentialRepository
     {
         $service = $this->getContainer()->get(CredentialRepository::class);

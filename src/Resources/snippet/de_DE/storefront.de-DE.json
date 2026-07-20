@@ -22,7 +22,8 @@
             "deleteSuccess": "Passkey entfernt.",
             "error": "Die Anfrage konnte nicht abgeschlossen werden.",
             "lastUsed": "Zuletzt verwendet: %date%",
-            "neverUsed": "Nie verwendet"
+            "neverUsed": "Nie verwendet",
+            "orphaned": "Gehört zu einer nicht mehr aktiven Domain."
         }
     }
 }

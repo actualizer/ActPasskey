@@ -11,6 +11,7 @@
                 <div class="card-title">{{ 'act-passkey.manage.title'|trans|sw_sanitize }}</div>
 
                 {% set passkeyCredentials = page.extensions.actPasskeyCredentials.credentials ?? [] %}
+                {% set orphanedIds = page.extensions.actPasskeyCredentials.orphanedIds ?? [] %}
 
                 {% if passkeyCredentials is empty %}
                     <p class="act-passkey-manage__empty">{{ 'act-passkey.manage.empty'|trans|sw_sanitize }}</p>
@@ -32,6 +33,11 @@
                                                 {{ 'act-passkey.manage.neverUsed'|trans }}
                                             {% endif %}
                                         </div>
+                                        {% if credential.id in orphanedIds %}
+                                            <div class="act-passkey-manage__orphaned text-muted small">
+                                                {{ 'act-passkey.manage.orphaned'|trans|sw_sanitize }}
+                                            </div>
+                                        {% endif %}
                                     </div>
 
                                     <div class="col-12 col-sm-6 col-md-3 mt-2 mt-md-0"
