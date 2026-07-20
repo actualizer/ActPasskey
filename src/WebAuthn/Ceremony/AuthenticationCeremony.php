@@ -46,7 +46,7 @@ final class AuthenticationCeremony
     {
         $challenge = random_bytes(32);
         $challengeId = $this->challengeStore->issue($challenge, ChallengePurpose::Authentication, $realm);
-        $options = $this->buildOptions($host, $challenge);
+        $options = $this->buildOptions($realm, $host, $challenge, $context);
 
         return [
             'options' => $this->serializer->serializeOptions($options),
@@ -69,7 +69,7 @@ final class AuthenticationCeremony
             throw new RuntimeException('Invalid or expired authentication challenge.');
         }
 
-        $options = $this->buildOptions($host, $challenge);
+        $options = $this->buildOptions($realm, $host, $challenge, $context);
 
         $credential = $this->serializer->deserializeCredential($rawResponseJson);
         $response = $credential->response;
@@ -85,7 +85,7 @@ final class AuthenticationCeremony
         $record = $this->toCredentialRecord($entity);
 
         $validator = AuthenticatorAssertionResponseValidator::create(
-            $this->ceremonyFactory->request($context)
+            $this->ceremonyFactory->request($realm, $context)
         );
         // Last argument is the expected user handle: the validator enforces that
         // the assertion's own userHandle matches the stored one.
@@ -108,11 +108,15 @@ final class AuthenticationCeremony
         return $accountId;
     }
 
-    private function buildOptions(string $host, string $challenge): PublicKeyCredentialRequestOptions
-    {
+    private function buildOptions(
+        Realm $realm,
+        string $host,
+        string $challenge,
+        Context $context
+    ): PublicKeyCredentialRequestOptions {
         return PublicKeyCredentialRequestOptions::create(
             $challenge,
-            $this->rpIdResolver->resolve($host),
+            $this->rpIdResolver->resolve($realm, $host, $context),
             [],
             PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED,
         );

@@ -3,6 +3,7 @@
 namespace Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony;
 
 use Actualize\Passkey\WebAuthn\Ceremony\CeremonyFactory;
+use Actualize\Passkey\WebAuthn\Credential\Realm;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
@@ -17,7 +18,7 @@ final class CeremonyFactoryTest extends TestCase
         $sut = $this->getContainer()->get(CeremonyFactory::class);
         $ctx = Context::createDefaultContext();
 
-        self::assertInstanceOf(CeremonyStepManager::class, $sut->creation($ctx));
-        self::assertInstanceOf(CeremonyStepManager::class, $sut->request($ctx));
+        self::assertInstanceOf(CeremonyStepManager::class, $sut->creation(Realm::Customer, $ctx));
+        self::assertInstanceOf(CeremonyStepManager::class, $sut->request(Realm::Customer, $ctx));
     }
 }

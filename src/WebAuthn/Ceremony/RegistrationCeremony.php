@@ -84,7 +84,7 @@ final class RegistrationCeremony
         }
 
         $validator = AuthenticatorAttestationResponseValidator::create(
-            $this->ceremonyFactory->creation($context)
+            $this->ceremonyFactory->creation($realm, $context)
         );
         $record = $validator->check($response, $options, $host);
 
@@ -112,7 +112,7 @@ final class RegistrationCeremony
         string $displayName = '',
         string $userName = ''
     ): PublicKeyCredentialCreationOptions {
-        $rpId = $this->rpIdResolver->resolve($host);
+        $rpId = $this->rpIdResolver->resolve($realm, $host, $context);
         $userHandle = $this->userHandles->getOrCreate($realm, $accountId, $context);
 
         // Cosmetic only: the label the browser's passkey manager shows. The user

@@ -2,16 +2,15 @@
 
 namespace Actualize\Passkey\WebAuthn\Ceremony;
 
+use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\RelyingParty\OriginAllowlistProvider;
 use Shopware\Core\Framework\Context;
 use Webauthn\CeremonyStep\CeremonyStepManager;
 use Webauthn\CeremonyStep\CeremonyStepManagerFactory;
 
 /**
- * Builds the webauthn-lib CeremonyStepManagers, pinning the allowed origins to
- * the server-derived allowlist — never the request Host header. Algorithms and
- * attestation support stay at the library defaults, which match this plugin's
- * `none`-attestation setup.
+ * Builds the webauthn-lib CeremonyStepManagers, pinning the allowed origins to the
+ * server-derived allowlist for that realm — never the request Host header.
  */
 final class CeremonyFactory
 {
@@ -19,20 +18,20 @@ final class CeremonyFactory
     {
     }
 
-    public function creation(Context $context): CeremonyStepManager
+    public function creation(Realm $realm, Context $context): CeremonyStepManager
     {
-        return $this->factory($context)->creationCeremony();
+        return $this->factory($realm, $context)->creationCeremony();
     }
 
-    public function request(Context $context): CeremonyStepManager
+    public function request(Realm $realm, Context $context): CeremonyStepManager
     {
-        return $this->factory($context)->requestCeremony();
+        return $this->factory($realm, $context)->requestCeremony();
     }
 
-    private function factory(Context $context): CeremonyStepManagerFactory
+    private function factory(Realm $realm, Context $context): CeremonyStepManagerFactory
     {
         $factory = new CeremonyStepManagerFactory();
-        $factory->setAllowedOrigins($this->origins->origins($context));
+        $factory->setAllowedOrigins($this->origins->origins($realm, $context));
 
         return $factory;
     }

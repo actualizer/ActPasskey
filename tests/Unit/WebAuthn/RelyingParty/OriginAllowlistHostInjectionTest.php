@@ -2,7 +2,9 @@
 
 namespace Actualize\Passkey\Tests\Unit\WebAuthn\RelyingParty;
 
+use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\RelyingParty\OriginAllowlistProvider;
+use Actualize\Passkey\WebAuthn\RelyingParty\SalesChannelDomainProvider;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
@@ -13,21 +15,23 @@ use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\Aggregate\SalesChannelDomain\SalesChannelDomainEntity;
 
 /**
- * Security-invariant test: `OriginAllowlistProvider::origins()` takes ONLY a
- * `Context`. There is no host/request parameter anywhere in its public API,
- * so a hostile `Host` header has no path into the allowlist - the allowlist
- * is entirely a function of the injected app-url string and whatever the
- * (mocked, here fully controlled) sales_channel_domain repository returns.
+ * Security-invariant test: `OriginAllowlistProvider::origins()` takes only a
+ * `Realm` and a `Context`. There is no host/request parameter anywhere in its
+ * public API, so a hostile `Host` header has no path into the allowlist - the
+ * allowlist is entirely a function of the injected app-url string, the realm,
+ * and whatever the (mocked, here fully controlled) sales_channel_domain
+ * repository returns.
  */
 final class OriginAllowlistHostInjectionTest extends TestCase
 {
-    public function testOriginsAcceptsOnlyContextNoHostInput(): void
+    public function testOriginsAcceptsOnlyRealmAndContextNoHostInput(): void
     {
         $method = new \ReflectionMethod(OriginAllowlistProvider::class, 'origins');
         $parameters = $method->getParameters();
 
-        self::assertCount(1, $parameters, 'origins() must not accept any argument besides Context');
-        self::assertSame(Context::class, $parameters[0]->getType()?->getName());
+        self::assertCount(2, $parameters, 'origins() must not accept any argument besides Realm and Context');
+        self::assertSame(Realm::class, $parameters[0]->getType()?->getName());
+        self::assertSame(Context::class, $parameters[1]->getType()?->getName());
     }
 
     public function testOnlyConfigDataDrivesAllowlist(): void
@@ -53,8 +57,8 @@ final class OriginAllowlistHostInjectionTest extends TestCase
         );
         $repo->method('search')->willReturn($result);
 
-        $sut = new OriginAllowlistProvider('https://app.example.com', $repo);
-        $origins = $sut->origins(Context::createDefaultContext());
+        $sut = new OriginAllowlistProvider('https://app.example.com', new SalesChannelDomainProvider($repo));
+        $origins = $sut->origins(Realm::Customer, Context::createDefaultContext());
 
         self::assertContains('https://app.example.com', $origins);
         self::assertContains('https://configured.example.com', $origins);

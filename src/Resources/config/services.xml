@@ -44,12 +44,11 @@
             <argument type="service" id="sales_channel_domain.repository"/>
         </service>
 
-        <!-- Origins are derived ONLY from %APP_URL% + sales_channel_domain.url,
-             NEVER from the request Host header (see OriginAllowlistProvider
-             class doc for the security rationale). -->
+        <!-- Origins come ONLY from %APP_URL% plus, for customers, the active
+             storefront domains — never from the request Host header. -->
         <service id="Actualize\Passkey\WebAuthn\RelyingParty\OriginAllowlistProvider" public="true">
             <argument type="string">%APP_URL%</argument>
-            <argument type="service" id="sales_channel_domain.repository"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\SalesChannelDomainProvider"/>
         </service>
 
         <!-- Builds the webauthn-lib CeremonyStepManagers with the pinned origin
