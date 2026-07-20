@@ -10,8 +10,8 @@
             <name>broadenParentDomain</name>
             <label lang="en-GB">Shared parent domain</label>
             <label lang="de-DE">Gemeinsame Parent-Domain</label>
-            <helpText lang="en-GB">Only needed when APP_URL uses a different subdomain than your sales channels, e.g. APP_URL on www.example.com and a channel on en.example.com. Enter the shared registrable domain without scheme, e.g. example.com. Leave empty otherwise. WARNING: changing this invalidates all existing passkeys.</helpText>
-            <helpText lang="de-DE">Nur nötig, wenn APP_URL eine andere Subdomain nutzt als die Verkaufskanäle, z. B. APP_URL auf www.example.com und ein Kanal auf en.example.com. Gemeinsame registrierbare Domain ohne Schema eintragen, z. B. example.com. Sonst leer lassen. ACHTUNG: Eine Änderung macht alle bestehenden Passkeys ungültig.</helpText>
+            <helpText lang="en-GB">Only needed when APP_URL uses a different subdomain than your sales channels, e.g. APP_URL on www.example.com and a channel on en.example.com. Enter the shared registrable domain without scheme, e.g. example.com. Leave empty otherwise. WARNING: changing this invalidates all existing passkeys. This setting applies shop-wide; it is not specific to the sales channel selected above.</helpText>
+            <helpText lang="de-DE">Nur nötig, wenn APP_URL eine andere Subdomain nutzt als die Verkaufskanäle, z. B. APP_URL auf www.example.com und ein Kanal auf en.example.com. Gemeinsame registrierbare Domain ohne Schema eintragen, z. B. example.com. Sonst leer lassen. ACHTUNG: Eine Änderung macht alle bestehenden Passkeys ungültig. Diese Einstellung gilt shopweit; sie ist nicht spezifisch für den oben ausgewählten Verkaufskanal.</helpText>
         </input-field>
     </card>
 </config>
