@@ -30,11 +30,12 @@
             <argument type="service" id="Psr\Clock\ClockInterface"/>
         </service>
 
-        <!-- Second argument (broaden-parent): no RP-ID broadening configured yet.
-             The untyped <argument>null</argument> is phpize()d to a real null. -->
+        <!-- Relying party id: APP_URL host, optionally broadened to a configured
+             parent for the customer realm. -->
         <service id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver" public="true">
             <argument type="string">%env(APP_URL)%</argument>
-            <argument>null</argument>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\SalesChannelDomainProvider"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
         </service>
 
         <!-- Single source for legitimate sales channel domains: active channels of
