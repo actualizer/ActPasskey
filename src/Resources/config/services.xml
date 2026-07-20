@@ -82,6 +82,7 @@
              setContainer call is needed. -->
         <service id="Actualize\Passkey\Controller\Admin\PasskeyAdminChallengeController" public="true">
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
+            <argument type="service" id="Shopware\Core\Framework\RateLimiter\RateLimiter"/>
         </service>
 
         <!-- Admin passkey self-service. Ownership comes from the token, mutations
@@ -110,6 +111,7 @@
         <service id="Actualize\Passkey\Controller\Store\PasskeyStoreApiController" public="true">
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService"/>
+            <argument type="service" id="Shopware\Core\Framework\RateLimiter\RateLimiter"/>
             <tag name="controller.service_arguments"/>
         </service>
 
@@ -133,6 +135,7 @@
         <service id="Actualize\Passkey\Controller\Storefront\PasskeyStorefrontController" public="true">
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService"/>
+            <argument type="service" id="Shopware\Core\Framework\RateLimiter\RateLimiter"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>

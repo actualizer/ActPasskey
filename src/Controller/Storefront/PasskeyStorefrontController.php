@@ -5,11 +5,14 @@ namespace Actualize\Passkey\Controller\Storefront;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService;
+use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
+use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Storefront\Controller\StorefrontController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -24,12 +27,19 @@ class PasskeyStorefrontController extends StorefrontController
     public function __construct(
         private readonly AuthenticationCeremony $authenticationCeremony,
         private readonly CustomerPasskeyLoginService $loginService,
+        private readonly RateLimiter $rateLimiter,
     ) {
     }
 
     #[Route(path: '/account/login/passkey/challenge', name: 'frontend.account.login.passkey.challenge', defaults: ['XmlHttpRequest' => true], methods: ['POST'])]
     public function challenge(Request $request, SalesChannelContext $context): JsonResponse
     {
+        try {
+            $this->rateLimiter->ensureAccepted('act_passkey_challenge', (string) $request->getClientIp());
+        } catch (RateLimitExceededException $exception) {
+            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
+        }
+
         $result = $this->authenticationCeremony->createOptions(Realm::Customer, $request->getHost(), $context->getContext());
 
         return new JsonResponse(['options' => json_decode($result['options'], true), 'challengeId' => $result['challengeId']]);
