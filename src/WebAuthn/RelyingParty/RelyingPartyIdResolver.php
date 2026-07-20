@@ -26,6 +26,44 @@ final class RelyingPartyIdResolver
 
     public function resolve(Realm $realm, string $host, Context $context): string
     {
+        return $this->resolveAgainst($realm, $host, $this->domains->hosts($context));
+    }
+
+    /**
+     * The rp ids the resolver would return on some active customer domain. A stored
+     * rp id absent from this set can no longer be reached — its domain was retired or
+     * the broaden parent changed — so the account list treats such a credential as
+     * orphaned.
+     *
+     * @return list<string>
+     */
+    public function reachableRpIds(Context $context): array
+    {
+        $hosts = $this->domains->hosts($context);
+
+        $candidates = $hosts;
+        if ($this->appHost !== '') {
+            $candidates[] = $this->appHost;
+        }
+
+        $reachable = [];
+        foreach ($candidates as $host) {
+            try {
+                $reachable[] = $this->resolveAgainst(Realm::Customer, $host, $hosts);
+            } catch (UnsupportedHostException) {
+                // A host that resolves to nothing contributes no reachable rp id.
+            }
+        }
+
+        return array_values(array_unique($reachable));
+    }
+
+    /**
+     * @param list<string> $storefrontHosts already-fetched active storefront hosts,
+     *     so a single call does not re-query the repository per candidate.
+     */
+    private function resolveAgainst(Realm $realm, string $host, array $storefrontHosts): string
+    {
         $host = strtolower(trim($host));
 
         if ($realm === Realm::Customer) {
@@ -41,7 +79,7 @@ final class RelyingPartyIdResolver
 
         // The admin deliberately stops here: it always runs on APP_URL, so widening
         // it to customer domains would only make its credential usable in more places.
-        if ($realm === Realm::Customer && in_array($host, $this->domains->hosts($context), true)) {
+        if ($realm === Realm::Customer && in_array($host, $storefrontHosts, true)) {
             return $host;
         }
 

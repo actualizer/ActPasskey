@@ -162,4 +162,33 @@ final class RelyingPartyIdResolverTest extends TestCase
         $this->expectException(UnsupportedHostException::class);
         $sut->resolve(Realm::Customer, 'evil.attacker.test', $this->context());
     }
+
+    public function testReachableRpIdsCoversAppHostAndStorefrontDomains(): void
+    {
+        $sut = $this->resolver('https://shopa.de', ['https://shopb.de']);
+
+        self::assertEqualsCanonicalizing(
+            ['shopa.de', 'shopb.de'],
+            $sut->reachableRpIds($this->context())
+        );
+    }
+
+    public function testBroadenParentCollapsesTheAppHostSubdomainOutOfTheReachableSet(): void
+    {
+        // With a broaden parent, resolve() returns the parent for the app host, so
+        // the bare app-host subdomain is no longer reachable: a credential created
+        // before the parent was configured is now orphaned.
+        $sut = $this->resolver('https://www.example.com', [], 'example.com');
+
+        self::assertSame(['example.com'], $sut->reachableRpIds($this->context()));
+    }
+
+    public function testReachableRpIdsSkipsAnUnparsableAppHost(): void
+    {
+        // A scheme-less APP_URL yields an empty app host; it must contribute nothing
+        // rather than an empty-string rp id.
+        $sut = $this->resolver('shopa.de', ['https://shopb.de']);
+
+        self::assertSame(['shopb.de'], $sut->reachableRpIds($this->context()));
+    }
 }
