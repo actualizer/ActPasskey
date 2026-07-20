@@ -72,7 +72,7 @@ final class EntityWriteProtectionTest extends TestCase
             ]
         );
 
-        self::assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode(), (string) $response->getContent());
+        $this->assertDeniedByWriteProtection($response, 'act_passkey_credential');
         self::assertCount(0, $this->credentials()->listOwned(Realm::Admin, $victim['id'], Context::createDefaultContext()));
     }
 
@@ -90,7 +90,7 @@ final class EntityWriteProtectionTest extends TestCase
             $this->token($attacker)
         );
 
-        self::assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode(), (string) $response->getContent());
+        $this->assertDeniedByWriteProtection($response, 'act_passkey_credential');
 
         $owned = $this->credentials()->listOwned(Realm::Admin, $victim['id'], Context::createDefaultContext());
         self::assertCount(1, $owned);
@@ -117,7 +117,7 @@ final class EntityWriteProtectionTest extends TestCase
             ]
         );
 
-        self::assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode(), (string) $response->getContent());
+        $this->assertDeniedByWriteProtection($response, 'act_passkey_user_handle');
     }
 
     /**
@@ -166,6 +166,32 @@ final class EntityWriteProtectionTest extends TestCase
         $repository = $this->getContainer()->get('act_passkey_user_handle.repository');
         $criteria = (new Criteria())->addFilter(new EqualsFilter('accountId', $user['id']));
         self::assertSame(1, $repository->searchIds($criteria, $context)->getTotal());
+    }
+
+    /**
+     * A bare 403 is not enough evidence. The attacker is a full admin with write scope,
+     * so today the only thing that can refuse is the definition's WriteProtection — but
+     * a later scope or ACL regression would produce its own 403 and keep these tests
+     * green over a wide-open hole. Pin the refusal to the protection itself.
+     *
+     * For /api requests the refusal comes from EntityProtectionValidator::validateEntityPath(),
+     * which runs while ApiController builds the entity path — earlier than the
+     * PreWriteValidationEvent check that guards internal DAL writes.
+     */
+    private function assertDeniedByWriteProtection(Response $response, string $entity): void
+    {
+        $body = (string) $response->getContent();
+
+        self::assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode(), $body);
+
+        $decoded = json_decode($body, true);
+        self::assertIsArray($decoded, $body);
+        self::assertIsArray($decoded['errors'][0] ?? null, $body);
+        self::assertSame(
+            \sprintf('API access for entity "%s" not allowed.', $entity),
+            $decoded['errors'][0]['detail'] ?? null,
+            $body
+        );
     }
 
     private function credentials(): CredentialRepository
