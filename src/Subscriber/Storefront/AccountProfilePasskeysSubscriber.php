@@ -46,6 +46,8 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
             return;
         }
 
+        $currentRpId = $this->currentRpId($event->getRequest()->getHost(), $event->getContext());
+
         try {
             $this->guard->assertEligible($customer);
             $reachable = $this->rpIdResolver->reachableRpIds($event->getContext());
@@ -53,7 +55,7 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
                 Realm::Customer,
                 $customer->getId(),
                 $event->getContext(),
-                $this->currentRpId($event->getRequest()->getHost(), $event->getContext()),
+                $currentRpId,
                 $reachable,
             );
         } catch (\Throwable) {
@@ -66,6 +68,9 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
         $event->getPage()->addExtension('actPasskeyCredentials', new ArrayStruct([
             'credentials' => $credentials,
             'orphanedIds' => $this->orphanedIds($credentials, $reachable),
+        ]));
+        $event->getPage()->addExtension('actPasskeySupported', new ArrayStruct([
+            'supported' => $currentRpId !== null,
         ]));
     }
 

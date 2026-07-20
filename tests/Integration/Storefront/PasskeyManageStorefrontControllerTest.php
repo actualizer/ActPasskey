@@ -2,6 +2,7 @@
 
 namespace Actualize\Passkey\Tests\Integration\Storefront;
 
+use Actualize\Passkey\Subscriber\Storefront\AccountProfilePasskeysSubscriber;
 use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
@@ -10,10 +11,17 @@ use Actualize\Passkey\WebAuthn\Credential\Realm;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\Struct\ArrayStruct;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
+use Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory;
+use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
 use Shopware\Core\Test\TestDefaults;
+use Shopware\Storefront\Page\Account\Profile\AccountProfilePage;
+use Shopware\Storefront\Page\Account\Profile\AccountProfilePageLoadedEvent;
 use Shopware\Storefront\Test\Controller\StorefrontControllerTestBehaviour;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Behavioural proof of the customer-facing passkey management card: a real
@@ -120,6 +128,50 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
         self::assertStringContainsString('Old device', $body);
         // The en-GB orphaned note (the test storefront resolves the en_GB snippet set).
         self::assertStringContainsString('no longer active', $body);
+    }
+
+    public function testRegisterBlockIsPresentOnASupportedHost(): void
+    {
+        $this->createLoggedInCustomer();
+
+        $profileResponse = $this->request('GET', 'account/profile', []);
+        self::assertSame(200, $profileResponse->getStatusCode());
+
+        // The test storefront runs on the APP_URL host, which resolves, so the add
+        // control must be rendered (server-side hidden; the JS reveals it).
+        self::assertStringContainsString('data-act-passkey-manage-register', (string) $profileResponse->getContent());
+    }
+
+    /**
+     * Fallback form (see class doc): overriding HTTP_HOST on the shared test
+     * browser cannot be observed here, because StorefrontControllerTestBehaviour::request()
+     * always builds a fully-qualified URI from %APP_URL%, and Symfony's
+     * Request::create() unconditionally re-derives HTTP_HOST/SERVER_NAME from a URI
+     * that already carries a host — so any HTTP_HOST override is silently discarded
+     * before it reaches the kernel. This exercises the subscriber directly instead.
+     */
+    public function testRegisterBlockIsHiddenOnAnUnsupportedHostButTheListRemains(): void
+    {
+        $customerId = $this->createCustomerRow();
+
+        $subscriber = $this->getContainer()->get(AccountProfilePasskeysSubscriber::class);
+        self::assertInstanceOf(AccountProfilePasskeysSubscriber::class, $subscriber);
+
+        $factory = $this->getContainer()->get(SalesChannelContextFactory::class);
+        self::assertInstanceOf(AbstractSalesChannelContextFactory::class, $factory);
+        $context = $factory->create(Uuid::randomHex(), TestDefaults::SALES_CHANNEL, [
+            SalesChannelContextService::CUSTOMER_ID => $customerId,
+        ]);
+
+        $request = Request::create('/account/profile', 'GET', [], [], [], ['HTTP_HOST' => 'unresolvable.invalid']);
+        $page = new AccountProfilePage();
+        $event = new AccountProfilePageLoadedEvent($page, $context, $request);
+
+        $subscriber->onProfileLoaded($event);
+
+        $supported = $page->getExtension('actPasskeySupported');
+        self::assertInstanceOf(ArrayStruct::class, $supported);
+        self::assertFalse($supported->get('supported'));
     }
 
     private function insertCredentialRow(string $customerId, string $rpId, string $name): void

@@ -123,61 +123,63 @@
                     </ul>
                 {% endif %}
 
-                {# The password step-up is a security requirement, not a
-                   convenience: a passkey is a login factor, so a hijacked
-                   session must not be able to add one. #}
-                <div class="act-passkey-manage__register" data-act-passkey-manage-register hidden>
-                    {% block act_passkey_manage_register_start %}
-                        <button type="button"
-                                class="btn btn-primary act-passkey-manage__start"
-                                data-act-passkey-manage-start>
-                            {{ 'act-passkey.manage.register'|trans }}
-                        </button>
-                    {% endblock %}
+                {% if page.extensions.actPasskeySupported.supported ?? false %}
+                    {# The password step-up is a security requirement, not a
+                       convenience: a passkey is a login factor, so a hijacked
+                       session must not be able to add one. #}
+                    <div class="act-passkey-manage__register" data-act-passkey-manage-register hidden>
+                        {% block act_passkey_manage_register_start %}
+                            <button type="button"
+                                    class="btn btn-primary act-passkey-manage__start"
+                                    data-act-passkey-manage-start>
+                                {{ 'act-passkey.manage.register'|trans }}
+                            </button>
+                        {% endblock %}
 
-                    {% block act_passkey_manage_register_form %}
-                        <form class="act-passkey-manage__register-form"
-                              data-act-passkey-manage-form
-                              hidden>
-                            <p class="act-passkey-manage__password-hint text-muted small mb-2">
-                                {{ 'act-passkey.manage.passwordHint'|trans|sw_sanitize }}
-                            </p>
+                        {% block act_passkey_manage_register_form %}
+                            <form class="act-passkey-manage__register-form"
+                                  data-act-passkey-manage-form
+                                  hidden>
+                                <p class="act-passkey-manage__password-hint text-muted small mb-2">
+                                    {{ 'act-passkey.manage.passwordHint'|trans|sw_sanitize }}
+                                </p>
 
-                            {# Bootstrap 5 dropped form-inline; this is its replacement. #}
-                            <div class="row row-cols-lg-auto g-2 align-items-center">
-                                <div class="col-12">
-                                    <label class="visually-hidden" for="actPasskeyPassword">
-                                        {{ 'act-passkey.manage.passwordLabel'|trans }}
-                                    </label>
-                                    <input type="password"
-                                           id="actPasskeyPassword"
-                                           name="password"
-                                           class="form-control form-control-sm"
-                                           placeholder="{{ 'act-passkey.manage.passwordLabel'|trans }}"
-                                           autocomplete="current-password"
-                                           required
-                                           data-act-passkey-manage-password>
+                                {# Bootstrap 5 dropped form-inline; this is its replacement. #}
+                                <div class="row row-cols-lg-auto g-2 align-items-center">
+                                    <div class="col-12">
+                                        <label class="visually-hidden" for="actPasskeyPassword">
+                                            {{ 'act-passkey.manage.passwordLabel'|trans }}
+                                        </label>
+                                        <input type="password"
+                                               id="actPasskeyPassword"
+                                               name="password"
+                                               class="form-control form-control-sm"
+                                               placeholder="{{ 'act-passkey.manage.passwordLabel'|trans }}"
+                                               autocomplete="current-password"
+                                               required
+                                               data-act-passkey-manage-password>
+                                    </div>
+                                    <div class="col-12">
+                                        <button type="submit" class="btn btn-sm btn-primary">
+                                            {{ 'act-passkey.manage.confirm'|trans }}
+                                        </button>
+                                    </div>
+                                    <div class="col-12">
+                                        <button type="button"
+                                                class="btn btn-sm btn-link"
+                                                data-act-passkey-manage-cancel>
+                                            {{ 'act-passkey.manage.cancel'|trans }}
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="col-12">
-                                    <button type="submit" class="btn btn-sm btn-primary">
-                                        {{ 'act-passkey.manage.confirm'|trans }}
-                                    </button>
-                                </div>
-                                <div class="col-12">
-                                    <button type="button"
-                                            class="btn btn-sm btn-link"
-                                            data-act-passkey-manage-cancel>
-                                        {{ 'act-passkey.manage.cancel'|trans }}
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                    {% endblock %}
+                            </form>
+                        {% endblock %}
 
-                    <div class="act-passkey-manage__error alert alert-danger mt-2"
-                         data-act-passkey-manage-error
-                         hidden></div>
-                </div>
+                        <div class="act-passkey-manage__error alert alert-danger mt-2"
+                             data-act-passkey-manage-error
+                             hidden></div>
+                    </div>
+                {% endif %}
             </div>
         </div>
     {% endblock %}

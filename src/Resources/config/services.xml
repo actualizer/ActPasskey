@@ -166,7 +166,7 @@
         <!-- Server-renders the customer's own passkey list into the account
              profile page (see class doc for why this bypasses the store-api
              JSON round-trip). -->
-        <service id="Actualize\Passkey\Subscriber\Storefront\AccountProfilePasskeysSubscriber">
+        <service id="Actualize\Passkey\Subscriber\Storefront\AccountProfilePasskeysSubscriber" public="true">
             <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
