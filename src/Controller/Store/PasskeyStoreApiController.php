@@ -20,9 +20,14 @@ use Symfony\Component\Routing\Attribute\Route;
  * Store-api passkey login: hands out a usernameless challenge and verifies the
  * assertion at the CUSTOMER realm via CustomerPasskeyLoginService. No password
  * check is involved, but eligibility still is — the service guards it before
- * opening a session. Both routes are pre-login (auth_required=false).
+ * opening a session.
+ *
+ * Both routes are pre-login, which is expressed by NOT setting `_loginRequired`.
+ * `auth_required` is a different axis — it gates the sales-channel access-key
+ * check, and switching it off makes SalesChannelAuthenticationListener return
+ * before it sets the sales-channel id, leaving `SalesChannelContext` unresolvable.
  */
-#[Route(defaults: ['_routeScope' => ['store-api'], 'auth_required' => false])]
+#[Route(defaults: ['_routeScope' => ['store-api']])]
 class PasskeyStoreApiController
 {
     public function __construct(
