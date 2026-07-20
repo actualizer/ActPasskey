@@ -39,10 +39,13 @@ final class OriginAllowlistProviderTest extends TestCase
         $provider = static::getContainer()->get(OriginAllowlistProvider::class);
         static::assertInstanceOf(OriginAllowlistProvider::class, $provider);
 
-        $appUrl = rtrim((string) static::getContainer()->getParameter('APP_URL'), '/');
+        $appUrlParts = parse_url((string) static::getContainer()->getParameter('APP_URL'));
+        self::assertIsArray($appUrlParts);
+        $expectedAppOrigin = $appUrlParts['scheme'] . '://' . $appUrlParts['host']
+            . (isset($appUrlParts['port']) ? ':' . $appUrlParts['port'] : '');
 
         // Customer ceremonies now run on arbitrary storefront domains, so the admin
         // must not inherit that widened list.
-        static::assertSame([$appUrl], $provider->origins(Realm::Admin, Context::createCLIContext()));
+        static::assertSame([$expectedAppOrigin], $provider->origins(Realm::Admin, Context::createCLIContext()));
     }
 }

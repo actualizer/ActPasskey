@@ -20,5 +20,6 @@ final class CeremonyFactoryTest extends TestCase
 
         self::assertInstanceOf(CeremonyStepManager::class, $sut->creation(Realm::Customer, $ctx));
         self::assertInstanceOf(CeremonyStepManager::class, $sut->request(Realm::Customer, $ctx));
+        self::assertInstanceOf(CeremonyStepManager::class, $sut->creation(Realm::Admin, $ctx));
     }
 }

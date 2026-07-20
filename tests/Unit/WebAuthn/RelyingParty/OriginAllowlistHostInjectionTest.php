@@ -64,4 +64,28 @@ final class OriginAllowlistHostInjectionTest extends TestCase
         self::assertContains('https://configured.example.com', $origins);
         self::assertCount(2, $origins, 'only the two configured/DB-backed origins are present, nothing else');
     }
+
+    public function testAdminAllowlistExcludesStorefrontOrigin(): void
+    {
+        $repo = $this->createMock(EntityRepository::class);
+
+        $entity = new SalesChannelDomainEntity();
+        $entity->setUniqueIdentifier(Uuid::randomHex());
+        $entity->setUrl('https://configured.example.com');
+
+        $result = new EntitySearchResult(
+            'sales_channel_domain',
+            1,
+            new EntityCollection([$entity]),
+            null,
+            new Criteria(),
+            Context::createDefaultContext()
+        );
+        $repo->method('search')->willReturn($result);
+
+        $sut = new OriginAllowlistProvider('https://app.example.com', new SalesChannelDomainProvider($repo));
+        $origins = $sut->origins(Realm::Admin, Context::createDefaultContext());
+
+        self::assertSame(['https://app.example.com'], $origins, 'admin realm must not inherit storefront domains');
+    }
 }
