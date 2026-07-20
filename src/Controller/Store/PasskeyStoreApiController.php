@@ -58,7 +58,7 @@ class PasskeyStoreApiController
     }
 
     #[Route(path: '/store-api/act-passkey/login', name: 'store-api.act-passkey.login', methods: ['POST'])]
-    public function login(Request $request, RequestDataBag $data, SalesChannelContext $context): ContextTokenResponse|JsonResponse
+    public function login(Request $request, RequestDataBag $data, SalesChannelContext $context): ContextTokenResponse
     {
         // Throttle before the body check, so a malformed flood is capped too.
         $rateLimitKey = (string) $request->getClientIp();
@@ -75,11 +75,9 @@ class PasskeyStoreApiController
             throw new UnauthorizedHttpException('', 'Passkey authentication failed');
         }
 
-        try {
-            $token = $this->loginService->login($response, $challengeId, $request->getHost(), $context);
-        } catch (UnsupportedHostException) {
-            return new JsonResponse(['error' => 'unsupported_host'], Response::HTTP_BAD_REQUEST);
-        }
+        // No host handling here: the login service turns every failure — including
+        // an unsupported host — into a 401 by design, so this route can't tell them apart.
+        $token = $this->loginService->login($response, $challengeId, $request->getHost(), $context);
 
         // login() throws on every failed attempt, so reset() is reached only on a
         // real success — a reset that ran unconditionally would leave this inert.
