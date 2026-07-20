@@ -3,6 +3,7 @@
 namespace Actualize\Passkey\WebAuthn\Ceremony;
 
 use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialEntity;
+use Actualize\Passkey\WebAuthn\Challenge\ChallengePurpose;
 use Actualize\Passkey\WebAuthn\Challenge\ChallengeStore;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
@@ -44,7 +45,7 @@ final class AuthenticationCeremony
     public function createOptions(Realm $realm, string $host, Context $context): array
     {
         $challenge = random_bytes(32);
-        $challengeId = $this->challengeStore->issue($challenge);
+        $challengeId = $this->challengeStore->issue($challenge, ChallengePurpose::Authentication, $realm);
         $options = $this->buildOptions($host, $challenge);
 
         return [
@@ -63,7 +64,7 @@ final class AuthenticationCeremony
         string $host,
         Context $context
     ): string {
-        $challenge = $this->challengeStore->consume($challengeId);
+        $challenge = $this->challengeStore->consume($challengeId, ChallengePurpose::Authentication, $realm);
         if ($challenge === null) {
             throw new RuntimeException('Invalid or expired authentication challenge.');
         }

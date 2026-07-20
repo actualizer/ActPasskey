@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 namespace Actualize\Passkey\WebAuthn\Challenge;
+use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Clock\ClockInterface;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -18,11 +19,18 @@ final class ChallengeStore {
         private readonly ClockInterface $clock,
     ) {}
 
-    public function issue(string $rawChallenge, int $ttlSeconds = 120): string {
+    public function issue(
+        string $rawChallenge,
+        ChallengePurpose $purpose,
+        Realm $realm,
+        int $ttlSeconds = 120
+    ): string {
         $id = Uuid::randomHex();
         $item = $this->cache->getItem(self::KEY_PREFIX . $id);
         $item->set([
             'challenge' => base64_encode($rawChallenge),
+            'purpose' => $purpose->value,
+            'realm' => $realm->value,
             'expires' => $this->clock->now()->getTimestamp() + $ttlSeconds,
         ]);
         $item->expiresAfter($ttlSeconds + 5); // backstop; primary check below
@@ -30,7 +38,7 @@ final class ChallengeStore {
         return $id;
     }
 
-    public function consume(string $challengeId): ?string {
+    public function consume(string $challengeId, ChallengePurpose $purpose, Realm $realm): ?string {
         $key = self::KEY_PREFIX . $challengeId;
         $item = $this->cache->getItem($key);
         if (!$item->isHit()) {
@@ -39,6 +47,11 @@ final class ChallengeStore {
         $this->cache->deleteItem($key); // delete first — single use even on later failure
         $data = $item->get();
         if (!is_array($data) || ($data['expires'] ?? 0) < $this->clock->now()->getTimestamp()) {
+            return null;
+        }
+        // A challenge is only valid for the ceremony and realm it was issued for:
+        // one handed out at a customer endpoint must not redeem an admin login.
+        if (($data['purpose'] ?? null) !== $purpose->value || ($data['realm'] ?? null) !== $realm->value) {
             return null;
         }
         $encoded = $data['challenge'] ?? null;

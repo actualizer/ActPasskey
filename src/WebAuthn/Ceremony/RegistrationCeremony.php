@@ -2,6 +2,7 @@
 
 namespace Actualize\Passkey\WebAuthn\Ceremony;
 
+use Actualize\Passkey\WebAuthn\Challenge\ChallengePurpose;
 use Actualize\Passkey\WebAuthn\Challenge\ChallengeStore;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
@@ -47,7 +48,7 @@ final class RegistrationCeremony
         string $userName = ''
     ): array {
         $challenge = random_bytes(32);
-        $challengeId = $this->challengeStore->issue($challenge);
+        $challengeId = $this->challengeStore->issue($challenge, ChallengePurpose::Registration, $realm);
         $options = $this->buildOptions($realm, $accountId, $host, $challenge, $context, $displayName, $userName);
 
         return [
@@ -67,7 +68,7 @@ final class RegistrationCeremony
         string $displayName = '',
         string $userName = ''
     ): void {
-        $challenge = $this->challengeStore->consume($challengeId);
+        $challenge = $this->challengeStore->consume($challengeId, ChallengePurpose::Registration, $realm);
         if ($challenge === null) {
             throw new RuntimeException('Invalid or expired registration challenge.');
         }
