@@ -8,6 +8,7 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
 
 final class CredentialRepository
 {
@@ -112,13 +113,29 @@ final class CredentialRepository
         return true;
     }
 
-    public function listOwned(Realm $realm, string $accountId, Context $context): PasskeyCredentialCollection
-    {
+    /**
+     * `$rpId` filters the list to the current channel. Rows without a stored rp id
+     * stay visible — filtering is display logic and must never hide a credential the
+     * owner still needs to manage.
+     */
+    public function listOwned(
+        Realm $realm,
+        string $accountId,
+        Context $context,
+        ?string $rpId = null
+    ): PasskeyCredentialCollection {
         $ownerField = $realm === Realm::Admin ? 'userId' : 'customerId';
 
         $criteria = (new Criteria())
             ->addFilter(new EqualsFilter('realm', $realm->value))
             ->addFilter(new EqualsFilter($ownerField, $accountId));
+
+        if ($rpId !== null) {
+            $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, [
+                new EqualsFilter('rpId', $rpId),
+                new EqualsFilter('rpId', null),
+            ]));
+        }
 
         /** @var PasskeyCredentialCollection $collection */
         $collection = $this->credentialRepository->search($criteria, $context)->getEntities();

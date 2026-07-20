@@ -6,6 +6,7 @@ use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard;
+use Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver;
 use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\Validation\Constraint\CustomerPasswordMatches;
@@ -46,6 +47,7 @@ class PasskeyManageStoreApiController
         private readonly CustomerEligibilityGuard $guard,
         private readonly DataValidator $validator,
         private readonly RateLimiter $rateLimiter,
+        private readonly RelyingPartyIdResolver $rpIdResolver,
     ) {
     }
 
@@ -55,12 +57,19 @@ class PasskeyManageStoreApiController
         defaults: [PlatformRequest::ATTRIBUTE_LOGIN_REQUIRED => true],
         methods: ['POST'],
     )]
-    public function list(SalesChannelContext $context, CustomerEntity $customer): JsonResponse
+    public function list(Request $request, SalesChannelContext $context, CustomerEntity $customer): JsonResponse
     {
         $this->guard->assertEligible($customer);
 
+        $rpId = null;
+        try {
+            $rpId = $this->rpIdResolver->resolve(Realm::Customer, $request->getHost(), $context->getContext());
+        } catch (UnsupportedHostException) {
+            // Unresolvable host: list everything rather than hide manageable credentials.
+        }
+
         $credentials = [];
-        foreach ($this->credentials->listOwned(Realm::Customer, $customer->getId(), $context->getContext()) as $credential) {
+        foreach ($this->credentials->listOwned(Realm::Customer, $customer->getId(), $context->getContext(), $rpId) as $credential) {
             $credentials[] = [
                 'id' => $credential->getId(),
                 'name' => $credential->getName(),

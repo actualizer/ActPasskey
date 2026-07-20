@@ -138,7 +138,7 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         $context = $this->createCustomerContext($customerId);
 
         $this->expectException(CustomerOptinNotCompletedException::class);
-        $this->controller()->list($context, $this->customerOf($context));
+        $this->controller()->list($this->buildHostRequest(), $context, $this->customerOf($context));
     }
 
     /**
@@ -180,7 +180,7 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         $context = $this->createCustomerContext($customerId);
 
         $this->expectException(CustomerNotFoundByIdException::class);
-        $this->controller()->list($context, $this->customerById($customerId));
+        $this->controller()->list($this->buildHostRequest(), $context, $this->customerById($customerId));
     }
 
     public function testRegisterWithoutPasswordIsRejected(): void
@@ -288,7 +288,7 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         $this->enrollPasskey($customerB, 'B Key');
 
         $context = $this->createCustomerContext($customerA);
-        $response = $this->controller()->list($context, $this->customerOf($context));
+        $response = $this->controller()->list($this->buildHostRequest(), $context, $this->customerOf($context));
 
         self::assertSame(Response::HTTP_OK, $response->getStatusCode());
         $data = json_decode((string) $response->getContent(), true);
