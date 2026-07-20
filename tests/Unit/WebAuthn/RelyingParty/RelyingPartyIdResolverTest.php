@@ -32,11 +32,10 @@ final class RelyingPartyIdResolverTest extends TestCase
             $entities[] = $domain;
         }
 
-        // One canned result per possible search() call in a single test.
+        // A single resolve() call reaches the sales-channel lookup at most once,
+        // so at most one search() call needs a canned result.
         /** @var StaticEntityRepository<SalesChannelDomainCollection> $repository */
         $repository = new StaticEntityRepository([
-            new SalesChannelDomainCollection($entities),
-            new SalesChannelDomainCollection($entities),
             new SalesChannelDomainCollection($entities),
         ]);
 
@@ -92,12 +91,33 @@ final class RelyingPartyIdResolverTest extends TestCase
         self::assertSame('example.com', $sut->resolve(Realm::Customer, 'en.example.com', $this->context()));
     }
 
+    public function testBroadenParentAppliesEvenWhenHostEqualsAppUrlItself(): void
+    {
+        // Pins rule 1 before rule 2: the host equals the APP_URL host itself.
+        // Under a swapped order rule 2 would match first and return
+        // 'www.example.com' instead, splitting its credentials from its siblings.
+        $sut = $this->resolver('https://www.example.com', [], 'example.com');
+
+        self::assertSame('example.com', $sut->resolve(Realm::Customer, 'www.example.com', $this->context()));
+    }
+
     public function testAppUrlWinsWhenItIsAlsoAStorefrontDomain(): void
     {
-        // Rule 2 before rule 3, otherwise the rp id would flip with the data.
+        // An APP_URL host that is also a registered storefront domain still
+        // resolves to the app host.
         $sut = $this->resolver('https://shopa.de', ['https://shopa.de', 'https://shopb.de']);
 
         self::assertSame('shopa.de', $sut->resolve(Realm::Customer, 'shopa.de', $this->context()));
+    }
+
+    public function testAppUrlSubdomainOutranksAMatchingStorefrontDomain(): void
+    {
+        // Pins rule 2 before rule 3: the host is itself a registered storefront
+        // domain AND a subdomain of APP_URL. Under a swapped order rule 3 would
+        // match first and return 'shop.example.com' instead.
+        $sut = $this->resolver('https://example.com', ['https://shop.example.com']);
+
+        self::assertSame('example.com', $sut->resolve(Realm::Customer, 'shop.example.com', $this->context()));
     }
 
     public function testBroadenParentNotCoveringAppUrlIsIgnored(): void
@@ -107,6 +127,32 @@ final class RelyingPartyIdResolverTest extends TestCase
 
         $this->expectException(UnsupportedHostException::class);
         $sut->resolve(Realm::Customer, 'en.example.org', $this->context());
+    }
+
+    public function testMalformedAppUrlFailsClosedOnTrailingDotHost(): void
+    {
+        // A scheme-less APP_URL leaves appHost '' internally; an empty suffix must
+        // not match anything, or any trailing-dot host would resolve to '' instead
+        // of throwing.
+        $sut = $this->resolver('shop.example.com');
+
+        $this->expectException(UnsupportedHostException::class);
+        $sut->resolve(Realm::Customer, 'evil.test.', $this->context());
+    }
+
+    public function testProductionDefaultWithoutTheConfigKeyStillResolvesAppUrl(): void
+    {
+        // The setting is not written to system_config on install, so an untouched
+        // shop must go through broadenParent()'s !is_string() branch, not a seeded ''.
+        /** @var StaticEntityRepository<SalesChannelDomainCollection> $repository */
+        $repository = new StaticEntityRepository([new SalesChannelDomainCollection()]);
+        $sut = new RelyingPartyIdResolver(
+            'https://shopa.de',
+            new SalesChannelDomainProvider($repository),
+            new StaticSystemConfigService([]),
+        );
+
+        self::assertSame('shopa.de', $sut->resolve(Realm::Customer, 'shopa.de', $this->context()));
     }
 
     public function testUnknownHostRejectedForCustomer(): void

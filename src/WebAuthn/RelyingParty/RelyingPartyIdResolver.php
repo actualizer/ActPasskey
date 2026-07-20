@@ -67,6 +67,10 @@ final class RelyingPartyIdResolver
 
     private function isWithin(string $host, string $suffix): bool
     {
+        if ($suffix === '') {
+            return false;
+        }
+
         return $host === $suffix || str_ends_with($host, '.' . $suffix);
     }
 }
