@@ -70,8 +70,10 @@ final class SalesChannelDomainProvider
             ->addFilter(new EqualsFilter('salesChannel.active', true))
             ->addFilter(new EqualsFilter('salesChannel.typeId', Defaults::SALES_CHANNEL_TYPE_STOREFRONT));
 
+        $domains = $this->domainRepository->search($criteria, $context);
+
         $urls = [];
-        foreach ($this->domainRepository->search($criteria, $context) as $domain) {
+        foreach ($domains as $domain) {
             $url = $domain->getUrl();
             if ($url !== '') {
                 $urls[] = $url;
