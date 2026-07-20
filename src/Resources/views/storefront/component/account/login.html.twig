@@ -11,6 +11,7 @@
 
         {# Hidden until the JS plugin confirms WebAuthn support — hence the "or"
            sits in here too. #}
+        {% if page.extensions.actPasskeySupported.supported ?? false %}
         <div class="act-passkey-login d-flex flex-wrap align-items-center gap-2"
              data-act-passkey-login
              data-challenge-url="{{ path('frontend.account.login.passkey.challenge') }}"
@@ -35,5 +36,6 @@
                  data-act-passkey-login-error
                  hidden></div>
         </div>
+        {% endif %}
     </div>
 {% endblock %}

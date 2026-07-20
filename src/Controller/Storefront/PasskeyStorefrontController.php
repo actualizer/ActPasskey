@@ -5,6 +5,7 @@ namespace Actualize\Passkey\Controller\Storefront;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService;
+use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
 use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -40,7 +41,11 @@ class PasskeyStorefrontController extends StorefrontController
             throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
         }
 
-        $result = $this->authenticationCeremony->createOptions(Realm::Customer, $request->getHost(), $context->getContext());
+        try {
+            $result = $this->authenticationCeremony->createOptions(Realm::Customer, $request->getHost(), $context->getContext());
+        } catch (UnsupportedHostException) {
+            return new JsonResponse(['error' => 'unsupported_host'], Response::HTTP_BAD_REQUEST);
+        }
 
         return new JsonResponse(['options' => json_decode($result['options'], true), 'challengeId' => $result['challengeId']]);
     }

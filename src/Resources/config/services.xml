@@ -173,6 +173,13 @@
             <tag name="kernel.event_subscriber"/>
         </service>
 
+        <!-- Gates the login button on whether this domain resolves to a relying
+             party id at all. -->
+        <service id="Actualize\Passkey\Subscriber\Storefront\LoginPagePasskeySupportSubscriber">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
         <service id="Actualize\Passkey\Twig\AdministrationLoginScriptsExtension">
             <argument type="service" id="kernel"/>
             <tag name="twig.extension"/>

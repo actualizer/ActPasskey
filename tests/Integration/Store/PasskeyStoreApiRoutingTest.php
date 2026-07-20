@@ -59,6 +59,16 @@ final class PasskeyStoreApiRoutingTest extends TestCase
         );
     }
 
+    public function testChallengeAnswers400ForAnUnsupportedHost(): void
+    {
+        $browser = $this->getSalesChannelBrowser();
+        $browser->setServerParameter('HTTP_HOST', 'unknown.invalid');
+        $browser->request('POST', '/store-api/act-passkey/challenge');
+
+        // Must be a clean rejection, never a 500 — this route used to blow up here.
+        self::assertSame(400, $browser->getResponse()->getStatusCode());
+    }
+
     private function appUrlHost(): string
     {
         $appUrl = (string) static::getContainer()->getParameter('APP_URL');
