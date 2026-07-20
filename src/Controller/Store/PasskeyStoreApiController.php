@@ -49,13 +49,25 @@ class PasskeyStoreApiController
     #[Route(path: '/store-api/act-passkey/login', name: 'store-api.act-passkey.login', methods: ['POST'])]
     public function login(Request $request, RequestDataBag $data, SalesChannelContext $context): ContextTokenResponse
     {
+        // Throttle before the body check, so a malformed flood is capped too.
+        $rateLimitKey = (string) $request->getClientIp();
+
+        try {
+            $this->rateLimiter->ensureAccepted('act_passkey_login', $rateLimitKey);
+        } catch (RateLimitExceededException $exception) {
+            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
+        }
+
         $response = $data->get('passkey_response');
         $challengeId = $data->get('passkey_challenge_id');
         if (!is_string($response) || $response === '' || !is_string($challengeId) || $challengeId === '') {
             throw new UnauthorizedHttpException('', 'Passkey authentication failed');
         }
 
+        // login() throws on every failed attempt, so reset() is reached only on a
+        // real success — a reset that ran unconditionally would leave this inert.
         $token = $this->loginService->login($response, $challengeId, $request->getHost(), $context);
+        $this->rateLimiter->reset('act_passkey_login', $rateLimitKey);
 
         return new ContextTokenResponse($token);
     }

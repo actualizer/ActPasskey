@@ -48,6 +48,15 @@ class PasskeyStorefrontController extends StorefrontController
     #[Route(path: '/account/login/passkey', name: 'frontend.account.login.passkey', methods: ['POST'])]
     public function login(Request $request, SalesChannelContext $context): Response
     {
+        // Throttle before the body check, so a malformed flood is capped too.
+        $rateLimitKey = (string) $request->getClientIp();
+
+        try {
+            $this->rateLimiter->ensureAccepted('act_passkey_login', $rateLimitKey);
+        } catch (RateLimitExceededException $exception) {
+            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
+        }
+
         $response = $request->request->get('passkey_response');
         $challengeId = $request->request->get('passkey_challenge_id');
         if (!is_string($response) || $response === '' || !is_string($challengeId) || $challengeId === '') {
@@ -56,6 +65,8 @@ class PasskeyStorefrontController extends StorefrontController
 
         try {
             $this->loginService->login($response, $challengeId, $request->getHost(), $context);
+            // Inside the try: a failed login throws, so only a success resets.
+            $this->rateLimiter->reset('act_passkey_login', $rateLimitKey);
         } catch (\Throwable) {
             // Catch broadly, incl. a rejected CustomerEligibilityGuard check
             // (e.g. unconfirmed double opt-in) — never leak a 500 for a failed

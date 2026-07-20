@@ -34,4 +34,16 @@ class RateLimiterConfigTest extends TestCase
         static::assertArrayNotHasKey('reset', $config['act_passkey_challenge']);
         static::assertSame(60, $config['act_passkey_challenge']['limit']);
     }
+
+    public function testLoginBucketBacksOffOnRepeatedFailures(): void
+    {
+        $config = static::getContainer()->getParameter('shopware.api.rate_limiter');
+
+        static::assertIsArray($config);
+        static::assertArrayHasKey('act_passkey_login', $config);
+        // time_backoff is safe here precisely because the callers reset() on a
+        // successful login, so only failed attempts ever accumulate.
+        static::assertSame('time_backoff', $config['act_passkey_login']['policy']);
+        static::assertNotEmpty($config['act_passkey_login']['limits']);
+    }
 }

@@ -32,3 +32,15 @@ shopware:
                 policy: 'fixed_window'
                 limit: 60
                 interval: '60 seconds'
+            # The customer login routes. Unlike the challenge bucket this one is
+            # `time_backoff`, because the callers reset() it on a successful login:
+            # only failures accumulate, so a shared NAT cannot lock itself out.
+            act_passkey_login:
+                enabled: true
+                policy: 'time_backoff'
+                reset: '24 hours'
+                limits:
+                    -   limit: 10
+                        interval: '60 seconds'
+                    -   limit: 20
+                        interval: '300 seconds'
