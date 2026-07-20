@@ -37,6 +37,12 @@
             <argument>null</argument>
         </service>
 
+        <!-- Single source for legitimate sales channel domains: active channels of
+             type Storefront only. -->
+        <service id="Actualize\Passkey\WebAuthn\RelyingParty\SalesChannelDomainProvider" public="true">
+            <argument type="service" id="sales_channel_domain.repository"/>
+        </service>
+
         <!-- Origins are derived ONLY from %APP_URL% + sales_channel_domain.url,
              NEVER from the request Host header (see OriginAllowlistProvider
              class doc for the security rationale). -->
