@@ -60,6 +60,7 @@ class PasskeyCredentialDefinition extends EntityDefinition
             (new IdField('id', 'id'))->addFlags(new PrimaryKey(), new Required()),
 
             (new StringField('realm', 'realm'))->addFlags(new Required()),
+            new StringField('rp_id', 'rpId'),
 
             (new FkField('user_id', 'userId', UserDefinition::class)),
             new ManyToOneAssociationField('user', 'user_id', UserDefinition::class, 'id', false),

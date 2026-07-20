@@ -13,6 +13,8 @@ class PasskeyCredentialEntity extends Entity
 
     protected string $realm;
 
+    protected ?string $rpId = null;
+
     protected ?string $userId = null;
     protected ?UserEntity $user = null;
 
@@ -43,6 +45,16 @@ class PasskeyCredentialEntity extends Entity
     public function setRealm(string $realm): void
     {
         $this->realm = $realm;
+    }
+
+    public function getRpId(): ?string
+    {
+        return $this->rpId;
+    }
+
+    public function setRpId(?string $rpId): void
+    {
+        $this->rpId = $rpId;
     }
 
     public function getUserId(): ?string

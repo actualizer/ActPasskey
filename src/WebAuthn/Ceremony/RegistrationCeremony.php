@@ -91,6 +91,9 @@ final class RegistrationCeremony
         $this->credentials->save([
             'id' => Uuid::randomHex(),
             'realm' => $realm->value,
+            // Taken from the options actually used, never re-resolved: the stored and
+            // the signed value must not be able to drift apart.
+            'rpId' => $options->rp->id,
             'userId' => $realm === Realm::Admin ? $accountId : null,
             'customerId' => $realm === Realm::Customer ? $accountId : null,
             'credentialId' => $record->publicKeyCredentialId,
