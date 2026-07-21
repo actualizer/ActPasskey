@@ -11,6 +11,7 @@ Passkeys are additive: the password login keeps working for every account. Anyon
 - Usernameless sign-in (discoverable credentials): the browser offers the matching passkey, no username needed
 - Self-service management: register, rename and revoke your own passkeys from the admin profile page or the customer account
 - Admin and customer passkeys are strictly separated: a customer passkey can never authenticate an administrator
+- Multi-domain aware: on a shop serving several storefront domains, each passkey is bound to the domain it was created on, so every domain issues and accepts its own domain-correct passkeys
 
 ## Requirements
 
@@ -50,7 +51,9 @@ This fails closed by design. Shopware core skips its own step-up under SSO, but 
 
 ### Domain coverage
 
-A passkey is bound to the shop's domain (that is what makes it phishing-resistant). Trusted origins are derived from `APP_URL` and the configured sales channel domains — never from the request host. On a domain that is not covered, the browser will not offer the passkey and the button stays hidden; the password login remains available.
+A passkey is bound to the shop's domain (that is what makes it phishing-resistant). Trusted origins are derived from `APP_URL` and the configured sales channel domains — never from the request host. On a domain that is not covered, the browser will not offer the passkey, and both the login button and the account "add a passkey" control stay hidden; the password login remains available.
+
+If a covered domain is later retired, or the shared parent domain is changed, a passkey created for it can no longer run a login ceremony. Such a passkey is not silently dropped: it stays listed in the customer account with a note that its domain is no longer active, so it remains renameable and deletable and never becomes stranded.
 
 ## Compatibility
 
