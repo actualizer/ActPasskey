@@ -2,6 +2,7 @@
 
 namespace Actualize\Passkey\Tests\Integration\Storefront;
 
+use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialEntity;
 use Actualize\Passkey\Subscriber\Storefront\AccountProfilePasskeysSubscriber;
 use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
@@ -22,6 +23,7 @@ use Shopware\Storefront\Page\Account\Profile\AccountProfilePage;
 use Shopware\Storefront\Page\Account\Profile\AccountProfilePageLoadedEvent;
 use Shopware\Storefront\Test\Controller\StorefrontControllerTestBehaviour;
 use Symfony\Component\HttpFoundation\Request;
+use Twig\Environment;
 
 /**
  * Behavioural proof of the customer-facing passkey management card: a real
@@ -168,6 +170,49 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
         $supported = $page->getExtension('actPasskeySupported');
         self::assertInstanceOf(ArrayStruct::class, $supported);
         self::assertFalse($supported->get('supported'));
+    }
+
+    /**
+     * Renders the real profile card block directly through Twig, the only way to
+     * observe the unsupported-host direction (the HTTP harness always resolves the
+     * APP_URL host to supported=true). Proves the {% if supported %} gate is not a
+     * silent no-op: the add block appears only when supported is true.
+     */
+    public function testRegisterBlockRendersOnlyWhenSupported(): void
+    {
+        $supportedHtml = $this->renderPasskeyCard(true);
+        $unsupportedHtml = $this->renderPasskeyCard(false);
+
+        self::assertStringContainsString('data-act-passkey-manage-register', $supportedHtml);
+        self::assertStringNotContainsString('data-act-passkey-manage-register', $unsupportedHtml);
+
+        // The list (and its per-row delete form) survives in BOTH cases, so an
+        // unsupported host never makes an existing credential unmanageable.
+        self::assertStringContainsString('data-act-passkey-delete-form', $supportedHtml);
+        self::assertStringContainsString('data-act-passkey-delete-form', $unsupportedHtml);
+    }
+
+    private function renderPasskeyCard(bool $supported): string
+    {
+        $twig = $this->getContainer()->get('twig');
+        self::assertInstanceOf(Environment::class, $twig);
+
+        $credential = new PasskeyCredentialEntity();
+        $credential->setId(Uuid::randomHex());
+        $credential->setName('Kept device');
+        $credential->setLastUsedAt(null);
+
+        $page = new AccountProfilePage();
+        $page->addExtension('actPasskeyCredentials', new ArrayStruct([
+            'credentials' => [$credential],
+            'orphanedIds' => [],
+        ]));
+        $page->addExtension('actPasskeySupported', new ArrayStruct([
+            'supported' => $supported,
+        ]));
+
+        return $twig->load('@ActPasskey/storefront/page/account/profile/index.html.twig')
+            ->renderBlock('page_account_profile_passkeys', ['page' => $page]);
     }
 
     private function insertCredentialRow(string $customerId, string $rpId, string $name): void
