@@ -1,0 +1,13 @@
+# Dedicated log channel for passkey diagnostics (config, cache and WebAuthn
+# failures) so they can be filtered — or silenced — without touching the rest of
+# the Shopware log. The catches that write here stay fail-closed: the public
+# response is unchanged, this only records internally why a ceremony failed.
+#
+# Level convention: public authentication attempts (login, grant, the profile
+# listing) log at NOTICE — not written under a normal prod log level, so a flood
+# of failed/bot logins cannot bloat the log, yet visible once an operator lowers
+# the level for diagnosis. Post-authentication operations (enrollment, rename,
+# delete) log at WARNING, since a failure there is genuinely unexpected.
+monolog:
+    channels:
+        - act_passkey

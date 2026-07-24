@@ -9,6 +9,7 @@ use League\OAuth2\Server\Grant\AbstractGrant;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\Api\OAuth\Scope\WriteScope;
 use Shopware\Core\Framework\Api\OAuth\User\User;
 use Shopware\Core\Framework\Context;
@@ -25,6 +26,7 @@ class PasskeyGrant extends AbstractGrant
     public function __construct(
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         private readonly AuthenticationCeremony $authenticationCeremony,
+        private readonly LoggerInterface $logger,
     ) {
         $this->setRefreshTokenRepository($refreshTokenRepository);
     }
@@ -95,6 +97,7 @@ class PasskeyGrant extends AbstractGrant
         } catch (\Throwable $e) {
             // In 5.3.5 CounterException does NOT extend AuthenticatorResponseVerificationException,
             // and realm/lookup failures throw RuntimeException — treat every failure as invalid grant.
+            $this->logger->notice('Passkey admin authentication failed', ['exception' => $e]);
             throw OAuthServerException::invalidGrant();
         }
 

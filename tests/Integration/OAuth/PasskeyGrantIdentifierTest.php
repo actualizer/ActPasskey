@@ -6,6 +6,7 @@ use Actualize\Passkey\OAuth\PasskeyGrant;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 
 /**
@@ -20,7 +21,7 @@ final class PasskeyGrantIdentifierTest extends TestCase
     public function testIdentifierIsPasskey(): void
     {
         $ceremony = $this->getContainer()->get(AuthenticationCeremony::class);
-        $grant = new PasskeyGrant($this->createMock(RefreshTokenRepositoryInterface::class), $ceremony);
+        $grant = new PasskeyGrant($this->createMock(RefreshTokenRepositoryInterface::class), $ceremony, new NullLogger());
 
         self::assertSame('passkey', $grant->getIdentifier());
     }

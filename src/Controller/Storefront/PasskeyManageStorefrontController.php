@@ -3,6 +3,7 @@
 namespace Actualize\Passkey\Controller\Storefront;
 
 use Actualize\Passkey\Controller\Store\PasskeyManageStoreApiController;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\Framework\Validation\Exception\ConstraintViolationException;
@@ -25,6 +26,7 @@ class PasskeyManageStorefrontController extends StorefrontController
 {
     public function __construct(
         private readonly PasskeyManageStoreApiController $manageStoreApi,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -85,7 +87,10 @@ class PasskeyManageStorefrontController extends StorefrontController
         try {
             $this->manageStoreApi->rename($id, $data, $context, $customer);
             $this->addFlash(self::SUCCESS, $this->trans('act-passkey.manage.renameSuccess'));
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            // Delegates to the store-api controller, whose rename has no logging
+            // catch of its own, so this wrapper records the swallowed failure.
+            $this->logger->warning('Passkey rename failed', ['exception' => $exception]);
             $this->addFlash(self::DANGER, $this->trans('act-passkey.manage.error'));
         }
 
@@ -104,8 +109,10 @@ class PasskeyManageStorefrontController extends StorefrontController
         try {
             $this->manageStoreApi->delete($id, $request, $data, $context, $customer);
             $this->addFlash(self::SUCCESS, $this->trans('act-passkey.manage.deleteSuccess'));
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
             // Wrong step-up password or a rate-limit hit -> same generic error flash.
+            // The store-api delete has no logging catch, so record it here.
+            $this->logger->warning('Passkey delete failed', ['exception' => $exception]);
             $this->addFlash(self::DANGER, $this->trans('act-passkey.manage.error'));
         }
 

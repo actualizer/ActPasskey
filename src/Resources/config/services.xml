@@ -98,6 +98,7 @@
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
             <argument type="service" id="Shopware\Core\Framework\RateLimiter\RateLimiter"/>
+            <argument type="service" id="monolog.logger.act_passkey"/>
             <tag name="controller.service_arguments"/>
         </service>
 
@@ -110,6 +111,7 @@
             <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard"/>
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\AccountService"/>
             <argument type="service" id="customer.repository"/>
+            <argument type="service" id="monolog.logger.act_passkey"/>
         </service>
 
         <!-- Store-api passkey login (challenge + login, both pre-login /
@@ -133,6 +135,7 @@
             <argument type="service" id="Shopware\Core\Framework\Validation\DataValidator"/>
             <argument type="service" id="Shopware\Core\Framework\RateLimiter\RateLimiter"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
+            <argument type="service" id="monolog.logger.act_passkey"/>
             <tag name="controller.service_arguments"/>
         </service>
 
@@ -158,6 +161,7 @@
              cannot drift from the store-api contract. -->
         <service id="Actualize\Passkey\Controller\Storefront\PasskeyManageStorefrontController" public="true">
             <argument type="service" id="Actualize\Passkey\Controller\Store\PasskeyManageStoreApiController"/>
+            <argument type="service" id="monolog.logger.act_passkey"/>
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
@@ -171,6 +175,7 @@
             <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
+            <argument type="service" id="monolog.logger.act_passkey"/>
             <tag name="kernel.event_subscriber"/>
         </service>
 
@@ -189,6 +194,7 @@
         <service id="Actualize\Passkey\OAuth\PasskeyGrant">
             <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony"/>
+            <argument type="service" id="monolog.logger.act_passkey"/>
         </service>
 
         <!-- Enables the `passkey` grant on the shared, per-request AuthorizationServer.

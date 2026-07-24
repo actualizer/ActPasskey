@@ -7,8 +7,13 @@ use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard;
+use Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LogLevel;
 use Shopware\Core\Checkout\Customer\CustomerException;
+use Shopware\Core\Checkout\Customer\SalesChannel\AccountService;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
@@ -149,6 +154,43 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
 
         $this->expectException(UnauthorizedHttpException::class);
         $controller->login($request, $requestDataBag, $salesChannelContext);
+    }
+
+    public function testFailedLoginIsRecordedOnThePasskeyChannel(): void
+    {
+        $spy = new class extends AbstractLogger {
+            /** @var list<array{level: mixed, message: string}> */
+            public array $records = [];
+
+            public function log($level, $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message];
+            }
+        };
+
+        // Real collaborators from the container, only the logger swapped for a spy —
+        // AuthenticationCeremony is final and cannot be mocked (see PasskeyGrantIdentifierTest).
+        $service = new CustomerPasskeyLoginService(
+            $this->getContainer()->get(AuthenticationCeremony::class),
+            $this->getContainer()->get(CustomerEligibilityGuard::class),
+            $this->getContainer()->get(AccountService::class),
+            $this->getContainer()->get('customer.repository'),
+            $spy,
+        );
+
+        // A challenge id that was never issued makes the ceremony throw, which the
+        // service catches: the public response stays a generic 401, but the failure
+        // must now be recorded internally for diagnosis.
+        try {
+            $service->login('not-a-valid-assertion', Uuid::randomHex(), $this->host, $this->createStorefrontContext());
+            self::fail('expected the failed login to throw UnauthorizedHttpException');
+        } catch (UnauthorizedHttpException) {
+            // expected — the generic public response is unchanged.
+        }
+
+        self::assertCount(1, $spy->records, 'a failed login must leave exactly one internal record');
+        self::assertSame('Passkey authentication failed', $spy->records[0]['message']);
+        self::assertSame(LogLevel::NOTICE, $spy->records[0]['level'], 'public auth failures log at NOTICE, not warning');
     }
 
     private function registerPasskey(Realm $realm, string $accountId, Context $ctx): void

@@ -4,6 +4,7 @@ namespace Actualize\Passkey\WebAuthn\Customer;
 
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\SalesChannel\AccountService;
@@ -26,6 +27,7 @@ final class CustomerPasskeyLoginService
         private readonly CustomerEligibilityGuard $guard,
         private readonly AccountService $accountService,
         private readonly EntityRepository $customerRepository,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -39,10 +41,13 @@ final class CustomerPasskeyLoginService
                 $host,
                 $context->getContext()
             );
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
             // Catch broadly, incl. Webauthn CounterException (does not extend the
             // verification exception in webauthn-lib 5.3.5) — never leak a 500 for
-            // a failed authentication attempt.
+            // a failed authentication attempt. NOTICE, not warning: this is a public
+            // endpoint that fails routinely (wrong key, bots), so it must not flood
+            // the error log — yet stays diagnosable once the level is lowered.
+            $this->logger->notice('Passkey authentication failed', ['exception' => $exception]);
             throw new UnauthorizedHttpException('', 'Passkey authentication failed');
         }
 

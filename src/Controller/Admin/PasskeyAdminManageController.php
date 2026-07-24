@@ -6,6 +6,7 @@ use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Api\OAuth\Scope\UserVerifiedScope;
@@ -38,6 +39,7 @@ class PasskeyAdminManageController
         private readonly RegistrationCeremony $registrationCeremony,
         private readonly CredentialRepository $credentials,
         private readonly RateLimiter $rateLimiter,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -136,6 +138,9 @@ class PasskeyAdminManageController
         } catch (\Throwable $exception) {
             // \Throwable, not the library's verification exception: webauthn-lib's
             // CounterException does not extend it, so a narrower catch would leak a 500.
+            // WARNING: enrollment runs after a password step-up, so a failure here is
+            // unexpected rather than routine login noise.
+            $this->logger->warning('Passkey admin enrollment failed', ['exception' => $exception]);
             throw new AccessDeniedHttpException('Passkey registration failed', $exception);
         }
 

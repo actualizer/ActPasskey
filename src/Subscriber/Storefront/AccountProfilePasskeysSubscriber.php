@@ -8,6 +8,7 @@ use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard;
 use Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver;
 use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Struct\ArrayStruct;
 use Shopware\Storefront\Page\Account\Profile\AccountProfilePageLoadedEvent;
@@ -25,6 +26,7 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
         private readonly CredentialRepository $credentials,
         private readonly CustomerEligibilityGuard $guard,
         private readonly RelyingPartyIdResolver $rpIdResolver,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -57,10 +59,11 @@ final class AccountProfilePasskeysSubscriber implements EventSubscriberInterface
                 $currentRpId,
                 $reachable,
             );
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
             // A session can outlive eligibility (e.g. the account is deactivated
             // after login). That must never take down the whole profile page; the
             // template treats a missing extension as an empty list.
+            $this->logger->notice('Passkey profile listing skipped', ['exception' => $exception]);
             return;
         }
 

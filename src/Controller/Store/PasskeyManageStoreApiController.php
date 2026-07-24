@@ -8,6 +8,7 @@ use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard;
 use Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver;
 use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\Validation\Constraint\CustomerPasswordMatches;
 use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
@@ -48,6 +49,7 @@ class PasskeyManageStoreApiController
         private readonly DataValidator $validator,
         private readonly RateLimiter $rateLimiter,
         private readonly RelyingPartyIdResolver $rpIdResolver,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -187,6 +189,9 @@ class PasskeyManageStoreApiController
         } catch (\Throwable $exception) {
             // \Throwable, not the library's verification exception: webauthn-lib's
             // CounterException does not extend it, so a narrower catch would leak a 500.
+            // WARNING: enrollment runs after a password step-up, so a failure here is
+            // unexpected rather than routine login noise.
+            $this->logger->warning('Passkey customer enrollment failed', ['exception' => $exception]);
             throw new AccessDeniedHttpException('Passkey registration failed', $exception);
         }
 
