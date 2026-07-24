@@ -66,6 +66,16 @@ For a clustered deployment, point both at shared backends:
 - Override the challenge pool with a shared adapter (for example Redis) via `framework.cache.pools.act_passkey.challenge_pool.adapter` in your own config. Because of the pinning above, the plugin will **not** switch automatically when you move the rest of Shopware to a shared cache.
 - Ensure the application lock uses a shared store (`LOCK_DSN`, for example Redis or a database) instead of the default `flock`. A shop already running multiple nodes normally has this configured for Shopware core anyway.
 
+### Credential names
+
+A passkey name is limited to 128 characters. Registering a passkey with a longer name is rejected, and a rename beyond that limit leaves the existing name unchanged.
+
+## Logging
+
+Passkey diagnostics go to a dedicated `act_passkey` log channel, so they can be filtered — or silenced — without touching the rest of the Shopware log. Logging never alters a response: every ceremony stays fail-closed, and the log only records why one failed. No WebAuthn payloads or credential data are written.
+
+Public authentication attempts (storefront login, the administration grant, the profile listing) log at NOTICE. A normal production log level does not write NOTICE, so failed or automated login attempts cannot bloat the log, while the detail becomes available as soon as an operator lowers the level for diagnosis. Operations that run after authentication — enrollment, rename, revoke — log at WARNING, because a failure there is genuinely unexpected.
+
 ## Compatibility
 
 - **Shopware Version**: 6.7.x
