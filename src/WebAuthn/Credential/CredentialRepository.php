@@ -14,6 +14,13 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotEqualsAnyFilte
 final class CredentialRepository
 {
     /**
+     * Upper bound on a user-supplied credential label. Well under the `name`
+     * column's 255 so an over-long label is rejected outright rather than
+     * silently truncated (or rejected) by the database.
+     */
+    public const MAX_NAME_LENGTH = 128;
+
+    /**
      * @param EntityRepository<PasskeyCredentialCollection> $credentialRepository
      */
     public function __construct(private readonly EntityRepository $credentialRepository)
@@ -99,6 +106,10 @@ final class CredentialRepository
 
     public function renameOwned(string $id, Realm $realm, string $accountId, string $name, Context $context): bool
     {
+        if (mb_strlen($name) > self::MAX_NAME_LENGTH) {
+            return false;
+        }
+
         if (!$this->assertOwned($id, $realm, $accountId, $context)) {
             return false;
         }

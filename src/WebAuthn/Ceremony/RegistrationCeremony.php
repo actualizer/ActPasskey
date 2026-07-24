@@ -68,6 +68,10 @@ final class RegistrationCeremony
         string $displayName = '',
         string $userName = ''
     ): void {
+        if (mb_strlen($name) > CredentialRepository::MAX_NAME_LENGTH) {
+            throw new RuntimeException('Credential name exceeds the maximum allowed length.');
+        }
+
         $challenge = $this->challengeStore->consume($challengeId, ChallengePurpose::Registration, $realm);
         if ($challenge === null) {
             throw new RuntimeException('Invalid or expired registration challenge.');

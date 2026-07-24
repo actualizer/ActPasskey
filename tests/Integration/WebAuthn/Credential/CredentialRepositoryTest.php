@@ -178,6 +178,26 @@ final class CredentialRepositoryTest extends TestCase
         self::assertSame('New name', $entity->getName());
     }
 
+    public function testRenameOwnedRejectsAnOverlongName(): void
+    {
+        $sut = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $ownerA = $this->createAdminUser();
+        $cred = Uuid::randomBytes();
+        $this->seed('admin', $ownerA, null, $cred);
+
+        $row = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
+        self::assertNotNull($row);
+
+        $overlong = str_repeat('a', CredentialRepository::MAX_NAME_LENGTH + 1);
+        self::assertFalse($sut->renameOwned($row->getId(), Realm::Admin, $ownerA, $overlong, $ctx));
+
+        // The rejected rename leaves the stored name untouched.
+        $entity = $sut->listOwned(Realm::Admin, $ownerA, $ctx)->first();
+        self::assertNotNull($entity);
+        self::assertSame('n', $entity->getName());
+    }
+
     public function testRenameOwnedIsANoOpForAForeignOwner(): void
     {
         $sut = $this->getContainer()->get(CredentialRepository::class);

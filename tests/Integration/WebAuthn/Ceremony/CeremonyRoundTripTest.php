@@ -151,6 +151,26 @@ final class CeremonyRoundTripTest extends TestCase
         self::assertSame($accountId, $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx));
     }
 
+    public function testRegistrationRejectsAnOverlongCredentialName(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $ctx = Context::createDefaultContext();
+
+        // The name guard runs before challenge/attestation handling, so no real
+        // ceremony is needed — an over-long name aborts verify() immediately.
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('exceeds the maximum allowed length');
+        $reg->verify(
+            Realm::Admin,
+            Uuid::randomHex(),
+            '{}',
+            Uuid::randomHex(),
+            $this->host,
+            str_repeat('a', CredentialRepository::MAX_NAME_LENGTH + 1),
+            $ctx,
+        );
+    }
+
     public function testCounterRegressionRejected(): void
     {
         $reg = $this->getContainer()->get(RegistrationCeremony::class);

@@ -15,6 +15,14 @@ use Webauthn\PublicKeyCredentialRequestOptions;
  */
 final class WebauthnSerializer
 {
+    /**
+     * Hard ceiling on the browser credential JSON before it is parsed. A real
+     * WebAuthn assertion/attestation ("none" attestation here) is a few KB; 64 KiB
+     * is far above any legitimate response but caps a multi-megabyte payload before
+     * the deserializer allocates it.
+     */
+    public const MAX_CREDENTIAL_JSON_BYTES = 65536;
+
     private readonly SerializerInterface $serializer;
 
     public function __construct()
@@ -34,6 +42,10 @@ final class WebauthnSerializer
 
     public function deserializeCredential(string $json): PublicKeyCredential
     {
+        if (\strlen($json) > self::MAX_CREDENTIAL_JSON_BYTES) {
+            throw new \RuntimeException('Credential response exceeds the maximum allowed size.');
+        }
+
         return $this->serializer->deserialize($json, PublicKeyCredential::class, 'json');
     }
 }
