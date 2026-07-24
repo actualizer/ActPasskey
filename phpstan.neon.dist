@@ -8,3 +8,31 @@ parameters:
     excludePaths:
         - src/Migration/*
     reportUnmatchedIgnoredErrors: false
+    # The blocks below only ever match when PHPStan runs from a Shopware
+    # development checkout, whose vendor ships the deprecation and strict rule
+    # sets. A production-template vendor has neither, so none of them match
+    # locally — hence reportUnmatchedIgnoredErrors above.
+    ignoreErrors:
+        # Deprecated for 6.8 (return-type change). Defining DAL fields through
+        # addFlags() is core's own idiom and has no 6.7 alternative. Revisit
+        # when the composer constraint moves past <6.8.
+        -
+            message: '#^Call to deprecated method addFlags\(\)#'
+            path: src/Entity
+        # The constructor is deprecated as a whole because its $options
+        # parameter goes away in 6.8. The call already passes
+        # $salesChannelContext, so there is nothing left to correct here.
+        -
+            message: '#^Call to deprecated method __construct\(\) of class .*CustomerPasswordMatches#'
+            path: src/Controller/Store/PasskeyManageStoreApiController.php
+        # Defensive casts on values the annotation claims are non-nullable.
+        # Kept deliberately: annotations are not runtime guarantees.
+        -
+            message: '#^Casting to string something that.s already string\.$#'
+            path: src/Controller/Store/PasskeyManageStoreApiController.php
+        # An explicit callback here would change which values survive the
+        # filter. This list is the WebAuthn origin allowlist; its semantics are
+        # not worth altering to satisfy a lint rule.
+        -
+            message: '#^Call to function array_filter\(\) requires parameter \#2#'
+            path: src/WebAuthn/RelyingParty/OriginAllowlistProvider.php
