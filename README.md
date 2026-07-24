@@ -55,6 +55,17 @@ A passkey is bound to the shop's domain (that is what makes it phishing-resistan
 
 If a covered domain is later retired, or the shared parent domain is changed, a passkey created for it can no longer run a login ceremony. Such a passkey is not silently dropped: it stays listed in the customer account with a note that its domain is no longer active, so it remains renameable and deletable and never becomes stranded.
 
+### Multi-node / clustered setups
+
+A passkey ceremony spans two requests: one issues a challenge, a second redeems it. By default the challenge lives in a dedicated **filesystem** cache pool (`act_passkey.challenge_pool`) and its single-use guarantee is serialized with a `flock` lock — both node-local. The pool is pinned to the filesystem adapter deliberately: Shopware maps `cache.app` to an in-memory adapter in the dev environment, which would break every ceremony locally, so the pool does not follow the global cache configuration.
+
+On a single application server this is correct. Behind a load balancer with more than one node it is not: a challenge issued on node A is absent when the redeem request lands on node B (surfacing as "Invalid or expired challenge"), and the single-use lock only serializes redemptions within one node.
+
+For a clustered deployment, point both at shared backends:
+
+- Override the challenge pool with a shared adapter (for example Redis) via `framework.cache.pools.act_passkey.challenge_pool.adapter` in your own config. Because of the pinning above, the plugin will **not** switch automatically when you move the rest of Shopware to a shared cache.
+- Ensure the application lock uses a shared store (`LOCK_DSN`, for example Redis or a database) instead of the default `flock`. A shop already running multiple nodes normally has this configured for Shopware core anyway.
+
 ## Compatibility
 
 - **Shopware Version**: 6.7.x
