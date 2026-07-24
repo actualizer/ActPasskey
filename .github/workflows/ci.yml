@@ -32,7 +32,9 @@ jobs:
         uses: shopware/github-actions/setup-extension@main
         with:
           extensionName: ActPasskey
-          shopwareVersion: v6.7.12.1
+          # Pinned patch must stay recent enough that composer's advisory policy
+          # does not block Shopware's own dependencies.
+          shopwareVersion: v6.7.12.2
           phpVersion: '8.4'
 
       - name: PHPStan
