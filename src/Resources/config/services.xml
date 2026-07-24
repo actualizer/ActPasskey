@@ -28,6 +28,7 @@
         <service id="Actualize\Passkey\WebAuthn\Challenge\ChallengeStore" public="true">
             <argument type="service" id="act_passkey.challenge_pool"/>
             <argument type="service" id="Psr\Clock\ClockInterface"/>
+            <argument type="service" id="lock.factory"/>
         </service>
 
         <!-- Relying party id: APP_URL host, optionally broadened to a configured
