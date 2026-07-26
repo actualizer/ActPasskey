@@ -112,8 +112,10 @@ export default class PasskeyLogin extends Plugin {
         if (!this.errorBox) {
             return;
         }
-        this.errorBox.textContent = this.errorText;
+        // Reveal the region first, then write into it: a role="alert" that receives
+        // its text while still hidden is not reliably announced.
         this.errorBox.hidden = false;
+        this.errorBox.textContent = this.errorText;
     }
 
     _hideError() {

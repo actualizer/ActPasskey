@@ -40,58 +40,80 @@ export default class PasskeyManage extends Plugin {
             const deleteForm = item.querySelector('[data-act-passkey-delete-form]');
             const renameCancel = item.querySelector('[data-act-passkey-rename-cancel]');
             const deleteCancel = item.querySelector('[data-act-passkey-delete-cancel]');
+            const renameToggle = item.querySelector('[data-act-passkey-rename-toggle]');
+            const deleteToggle = item.querySelector('[data-act-passkey-delete-toggle]');
 
             if (!actions.length || !renameForm || !deleteForm) {
                 return;
             }
 
-            const showActions = (visible) => {
-                actions.forEach((action) => {
-                    action.hidden = !visible;
-                });
+            const setExpanded = (toggle, expanded) => {
+                toggle?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
             };
 
-            const collapse = () => {
+            // The toggles stay visible while their form is open: that is what makes
+            // aria-expanded describe a control the user can still reach, and it gives
+            // focus somewhere to return to when the form closes.
+            const collapse = (focusTarget) => {
                 renameForm.hidden = true;
                 deleteForm.hidden = true;
-                showActions(true);
+                setExpanded(renameToggle, false);
+                setExpanded(deleteToggle, false);
+                focusTarget?.focus();
             };
 
-            const expand = (form) => {
+            const expand = (form, toggle) => {
                 renameForm.hidden = true;
                 deleteForm.hidden = true;
+                setExpanded(renameToggle, false);
+                setExpanded(deleteToggle, false);
                 form.hidden = false;
-                showActions(false);
+                setExpanded(toggle, true);
                 form.querySelector('input')?.focus();
             };
 
+            actions.forEach((action) => {
+                action.hidden = false;
+            });
             collapse();
 
             if (renameCancel) {
                 renameCancel.hidden = false;
-                renameCancel.addEventListener('click', collapse);
+                renameCancel.addEventListener('click', () => collapse(renameToggle));
             }
 
             if (deleteCancel) {
                 deleteCancel.hidden = false;
-                deleteCancel.addEventListener('click', collapse);
+                deleteCancel.addEventListener('click', () => collapse(deleteToggle));
             }
 
-            item.querySelector('[data-act-passkey-rename-toggle]')
-                ?.addEventListener('click', () => expand(renameForm));
-            item.querySelector('[data-act-passkey-delete-toggle]')
-                ?.addEventListener('click', () => expand(deleteForm));
+            renameToggle?.addEventListener('click', () => {
+                if (renameForm.hidden) {
+                    expand(renameForm, renameToggle);
+                } else {
+                    collapse(renameToggle);
+                }
+            });
+
+            deleteToggle?.addEventListener('click', () => {
+                if (deleteForm.hidden) {
+                    expand(deleteForm, deleteToggle);
+                } else {
+                    collapse(deleteToggle);
+                }
+            });
         });
     }
 
     _onStart() {
-        this._hideError();
-        this.form.hidden = false;
-
-        if (this.startButton) {
-            this.startButton.hidden = true;
+        if (!this.form.hidden) {
+            this._onCancel();
+            return;
         }
 
+        this._hideError();
+        this.form.hidden = false;
+        this.startButton?.setAttribute('aria-expanded', 'true');
         this.passwordInput?.focus();
     }
 
@@ -103,9 +125,8 @@ export default class PasskeyManage extends Plugin {
             this.passwordInput.value = '';
         }
 
-        if (this.startButton) {
-            this.startButton.hidden = false;
-        }
+        this.startButton?.setAttribute('aria-expanded', 'false');
+        this.startButton?.focus();
     }
 
     async _onSubmit(event) {
@@ -192,8 +213,10 @@ export default class PasskeyManage extends Plugin {
         if (!this.errorBox) {
             return;
         }
-        this.errorBox.textContent = this.errorText;
+        // Reveal the region first, then write into it: a role="alert" that receives
+        // its text while still hidden is not reliably announced.
         this.errorBox.hidden = false;
+        this.errorBox.textContent = this.errorText;
     }
 
     _hideError() {

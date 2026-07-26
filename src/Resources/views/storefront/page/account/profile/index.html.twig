@@ -43,8 +43,13 @@
                                     <div class="col-12 col-sm-6 col-md-3 mt-2 mt-md-0"
                                          data-act-passkey-item-actions
                                          hidden>
+                                        {# The name is only in the aria-label: the visible text has to
+                                           stay short, but "Rename" alone repeats per list item. #}
                                         <button type="button"
                                                 class="btn btn-link account-profile-change p-0 align-baseline"
+                                                aria-expanded="false"
+                                                aria-controls="act-passkey-rename-{{ credential.id }}"
+                                                aria-label="{{ 'act-passkey.manage.renameNamed'|trans({'%name%': credential.name}) }}"
                                                 data-act-passkey-rename-toggle>
                                             {{ 'act-passkey.manage.rename'|trans }}
                                         </button>
@@ -55,6 +60,9 @@
                                          hidden>
                                         <button type="button"
                                                 class="btn btn-link link-danger account-profile-change p-0 align-baseline"
+                                                aria-expanded="false"
+                                                aria-controls="act-passkey-delete-{{ credential.id }}"
+                                                aria-label="{{ 'act-passkey.manage.deleteNamed'|trans({'%name%': credential.name}) }}"
                                                 data-act-passkey-delete-toggle>
                                             {{ 'act-passkey.manage.delete'|trans }}
                                         </button>
@@ -64,10 +72,15 @@
                                 <form action="{{ path('frontend.account.passkey.rename', {id: credential.id}) }}"
                                       method="post"
                                       class="act-passkey-manage__rename-form mt-2"
+                                      id="act-passkey-rename-{{ credential.id }}"
                                       data-act-passkey-rename-form>
                                     <div class="row row-cols-lg-auto g-2 align-items-center">
                                         <div class="col-12">
+                                            <label class="visually-hidden" for="act-passkey-name-{{ credential.id }}">
+                                                {{ 'act-passkey.manage.nameLabel'|trans }}
+                                            </label>
                                             <input type="text"
+                                                   id="act-passkey-name-{{ credential.id }}"
                                                    name="name"
                                                    value="{{ credential.name }}"
                                                    class="form-control form-control-sm act-passkey-manage__name-input"
@@ -92,15 +105,23 @@
                                 <form action="{{ path('frontend.account.passkey.delete', {id: credential.id}) }}"
                                       method="post"
                                       class="act-passkey-manage__delete-form mt-2"
+                                      id="act-passkey-delete-{{ credential.id }}"
                                       data-act-passkey-delete-form>
-                                    <p class="text-muted small mb-2">{{ 'act-passkey.manage.passwordHint'|trans|sw_sanitize }}</p>
+                                    <p class="text-muted small mb-2"
+                                       id="act-passkey-delete-hint-{{ credential.id }}">{{ 'act-passkey.manage.passwordHint'|trans|sw_sanitize }}</p>
                                     <div class="row row-cols-lg-auto g-2 align-items-center">
                                         <div class="col-12">
+                                            {# The placeholder alone is no accessible name and disappears on typing. #}
+                                            <label class="visually-hidden" for="act-passkey-delete-password-{{ credential.id }}">
+                                                {{ 'act-passkey.manage.passwordLabel'|trans }}
+                                            </label>
                                             <input type="password"
+                                                   id="act-passkey-delete-password-{{ credential.id }}"
                                                    name="password"
                                                    class="form-control form-control-sm"
                                                    placeholder="{{ 'act-passkey.manage.passwordLabel'|trans }}"
                                                    autocomplete="current-password"
+                                                   aria-describedby="act-passkey-delete-hint-{{ credential.id }}"
                                                    required>
                                         </div>
                                         <div class="col-12">
@@ -131,6 +152,8 @@
                         {% block act_passkey_manage_register_start %}
                             <button type="button"
                                     class="btn btn-primary act-passkey-manage__start"
+                                    aria-expanded="false"
+                                    aria-controls="actPasskeyRegisterForm"
                                     data-act-passkey-manage-start>
                                 {{ 'act-passkey.manage.register'|trans }}
                             </button>
@@ -138,9 +161,11 @@
 
                         {% block act_passkey_manage_register_form %}
                             <form class="act-passkey-manage__register-form"
+                                  id="actPasskeyRegisterForm"
                                   data-act-passkey-manage-form
                                   hidden>
-                                <p class="act-passkey-manage__password-hint text-muted small mb-2">
+                                <p class="act-passkey-manage__password-hint text-muted small mb-2"
+                                   id="actPasskeyPasswordHint">
                                     {{ 'act-passkey.manage.passwordHint'|trans|sw_sanitize }}
                                 </p>
 
@@ -156,6 +181,7 @@
                                                class="form-control form-control-sm"
                                                placeholder="{{ 'act-passkey.manage.passwordLabel'|trans }}"
                                                autocomplete="current-password"
+                                               aria-describedby="actPasskeyPasswordHint"
                                                required
                                                data-act-passkey-manage-password>
                                     </div>
@@ -175,7 +201,10 @@
                             </form>
                         {% endblock %}
 
+                        {# role="alert" only announces once the region is rendered, so the
+                           JS reveals it before writing the message into it. #}
                         <div class="act-passkey-manage__error alert alert-danger mt-2"
+                             role="alert"
                              data-act-passkey-manage-error
                              hidden></div>
                     </div>
