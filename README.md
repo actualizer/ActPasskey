@@ -20,17 +20,6 @@ Passkeys are additive: the password login keeps working for every account. Anyon
 
 ## Installation
 
-### Via Composer (recommended)
-
-```bash
-composer require actualizer/passkey
-bin/console plugin:refresh
-bin/console plugin:install --activate ActPasskey
-bin/console cache:clear
-```
-
-### Manual
-
 1. Download or clone this plugin into your `custom/plugins/` directory
 2. Install and activate the plugin via CLI:
    ```bash
