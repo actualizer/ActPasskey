@@ -20,6 +20,17 @@ Passkeys are additive: the password login keeps working for every account. Anyon
 
 ## Installation
 
+### Via Composer (recommended)
+
+```bash
+composer require actualizer/passkey
+bin/console plugin:refresh
+bin/console plugin:install --activate ActPasskey
+bin/console cache:clear
+```
+
+### Manual
+
 1. Download or clone this plugin into your `custom/plugins/` directory
 2. Install and activate the plugin via CLI:
    ```bash
@@ -72,12 +83,16 @@ Public authentication attempts (storefront login, the administration grant, the 
 
 ## Support
 
-For questions or support, contact Actualize at https://actualize.de
+For issues and feature requests, please use the GitHub issue tracker.
 
 ## License
 
-This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This plugin is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Credits
 
 Developed by Actualize
+
+---
+
+Made with ❤️ for the Shopware Community

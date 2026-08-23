@@ -1,0 +1,8 @@
+{
+  "main.js": {
+    "file": "assets/act-passkey-CibDdhNj.js",
+    "name": "act-passkey",
+    "src": "main.js",
+    "isEntry": true
+  }
+}
