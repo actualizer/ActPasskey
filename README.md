@@ -39,6 +39,28 @@ bin/console cache:clear
    bin/console cache:clear
    ```
 
+## Usage
+
+Passkeys are self-service: every account registers its own passkeys. An administrator cannot create a passkey for another user, so there is no passkey option in *Settings > System > Users & permissions*.
+
+### Administration
+
+1. Open the user menu (bottom left) and choose **Your profile**.
+2. In the **Passkeys** card, click **Register new passkey** and confirm your password.
+3. Follow the browser or device prompt.
+
+From then on, the admin login page offers a passkey sign-in button.
+
+### Storefront
+
+1. Log in and open **Account > Profile** (`/account/profile`).
+2. In the **Passkeys** section, click **Register new passkey** and confirm your password.
+3. Follow the browser or device prompt.
+
+The storefront login page then offers passkey sign-in.
+
+If the register button does not appear, the page is not running on a covered HTTPS domain or the browser lacks WebAuthn support (see [Domain coverage](#domain-coverage)).
+
 ## Known limitations
 
 ### Administration SSO
