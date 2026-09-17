@@ -2,10 +2,12 @@
   "base": "/bundles/actpasskey/administration/",
   "entryPoints": {
     "act-passkey": {
-      "css": [],
+      "css": [
+        "/bundles/actpasskey/administration/assets/act-passkey-Cme2Qznq.css"
+      ],
       "dynamic": [],
       "js": [
-        "/bundles/actpasskey/administration/assets/act-passkey-CibDdhNj.js"
+        "/bundles/actpasskey/administration/assets/act-passkey-ESYy3Dv5.js"
       ],
       "legacy": false,
       "preload": []

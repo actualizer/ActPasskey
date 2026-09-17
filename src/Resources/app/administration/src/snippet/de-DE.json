@@ -6,6 +6,22 @@
         }
     },
     "act-passkey": {
+        "settings": {
+            "info": {
+                "howTo": {
+                    "title": "So funktioniert's",
+                    "item1": "Das Plugin funktioniert direkt nach der Aktivierung. Die Einstellung unten ist nur für Sonderfälle mit mehreren Subdomains gedacht.",
+                    "item2": "Jede Person richtet ihre Passkeys selbst ein, für andere Benutzer oder Kunden geht das nicht. Deshalb gibt es unter <strong>Benutzer &amp; Rechte</strong> keine Passkey-Option.",
+                    "item3": "Administration: Benutzermenü unten links &gt; <strong>Dein Profil</strong> &gt; Karte <strong>Passkeys</strong> &gt; <strong>Passkey hinzufügen</strong> (Passwort bestätigen).",
+                    "item4": "Kunden: im Kundenkonto unter <strong>Persönliches Profil</strong> &gt; Bereich <strong>Passkeys</strong>.",
+                    "item5": "Danach bietet die Login-Seite die Anmeldung per Passkey an. Der Passwort-Login bleibt immer verfügbar.",
+                    "item6": "Kein Passkey-Button zu sehen? Die Seite muss per HTTPS auf einer Shop-Domain laufen (APP_URL oder eine Verkaufskanal-Domain), und der Browser muss Passkeys unterstützen. Bei Admin-Login per SSO können Administratoren keine Passkeys verwalten; die Storefront ist davon nicht betroffen."
+                },
+                "openProfileLink": "Eigene Passkeys im Profil verwalten",
+                "description": "Passwortloser Login per Passkey für Storefront und Administration.",
+                "issues": "Probleme oder Feature-Wünsche?"
+            }
+        },
         "manage": {
             "title": "Passkeys",
             "register": "Passkey hinzufügen",

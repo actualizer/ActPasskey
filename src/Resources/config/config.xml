@@ -3,6 +3,15 @@
         xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/platform/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
 
     <card>
+        <title lang="en-GB">Information</title>
+        <title lang="de-DE">Information</title>
+
+        <component name="act-passkey-info">
+            <name>pluginInfo</name>
+        </component>
+    </card>
+
+    <card>
         <title lang="en-GB">Multi-domain</title>
         <title lang="de-DE">Multi-Domain</title>
 

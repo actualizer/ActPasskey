@@ -1,8 +1,11 @@
 {
   "main.js": {
-    "file": "assets/act-passkey-CibDdhNj.js",
+    "file": "assets/act-passkey-ESYy3Dv5.js",
     "name": "act-passkey",
     "src": "main.js",
-    "isEntry": true
+    "isEntry": true,
+    "css": [
+      "assets/act-passkey-Cme2Qznq.css"
+    ]
   }
 }

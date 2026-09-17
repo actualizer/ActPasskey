@@ -6,6 +6,22 @@
         }
     },
     "act-passkey": {
+        "settings": {
+            "info": {
+                "howTo": {
+                    "title": "How it works",
+                    "item1": "The plugin works right after activation. The setting below is only needed for special multi-subdomain setups.",
+                    "item2": "Everyone sets up their own passkeys; it cannot be done for other users or customers. That is why there is no passkey option under <strong>Users &amp; permissions</strong>.",
+                    "item3": "Administration: user menu bottom left &gt; <strong>Your profile</strong> &gt; <strong>Passkeys</strong> card &gt; <strong>Register new passkey</strong> (confirm password).",
+                    "item4": "Customers: in the customer account under <strong>Your profile</strong> &gt; <strong>Passkeys</strong> section.",
+                    "item5": "The login page then offers passkey sign-in. Password login always stays available.",
+                    "item6": "No passkey button? The page must run via HTTPS on a shop domain (APP_URL or a sales channel domain), and the browser must support passkeys. With SSO admin login, administrators cannot manage passkeys; the storefront is unaffected."
+                },
+                "openProfileLink": "Manage your own passkeys in your profile",
+                "description": "Passwordless passkey login for the storefront and the administration.",
+                "issues": "Problems or feature requests?"
+            }
+        },
         "manage": {
             "title": "Passkeys",
             "register": "Register new passkey",
