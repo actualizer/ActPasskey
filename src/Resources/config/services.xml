@@ -102,6 +102,11 @@
             <tag name="controller.service_arguments"/>
         </service>
 
+        <service id="Actualize\Passkey\Controller\Admin\PasskeyGovernanceController" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
         <service id="Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard" public="true"/>
 
         <!-- Shared verify -> eligibility -> loginById. Both customer login entry points
