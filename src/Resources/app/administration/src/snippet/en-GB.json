@@ -44,7 +44,8 @@
             "revoke": "Revoke passkey",
             "revokeSuccess": "Passkey revoked.",
             "confirmTitle": "Revoke passkey",
-            "confirmText": "Revoke passkey \"{name}\"? The password login keeps working."
+            "confirmText": "Revoke passkey \"{name}\"? The password login keeps working.",
+            "rateLimited": "Too many revocations in a short time. Please wait a moment and try again."
         }
     },
     "sw-privileges": {

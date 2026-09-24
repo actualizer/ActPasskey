@@ -142,9 +142,15 @@ Component.register('act-passkey-governance-card', {
                     message: this.$t('act-passkey.governance.revokeSuccess'),
                 });
                 await this.loadPasskeys();
-            } catch {
+            } catch (error) {
+                // The shared act_passkey_delete bucket is easily hit when an operator
+                // cleans up several passkeys after an incident — tell them why instead
+                // of the generic error.
+                const messageKey = error?.response?.status === 429
+                    ? 'act-passkey.governance.rateLimited'
+                    : 'act-passkey.manage.error';
                 this.createNotificationError({
-                    message: this.$t('act-passkey.manage.error'),
+                    message: this.$t(messageKey),
                 });
             } finally {
                 this.isLoading = false;

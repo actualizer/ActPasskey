@@ -44,7 +44,8 @@
             "revoke": "Passkey widerrufen",
             "revokeSuccess": "Passkey widerrufen.",
             "confirmTitle": "Passkey widerrufen",
-            "confirmText": "Passkey „{name}“ widerrufen? Die Anmeldung per Passwort bleibt möglich."
+            "confirmText": "Passkey „{name}“ widerrufen? Die Anmeldung per Passwort bleibt möglich.",
+            "rateLimited": "Zu viele Widerrufe in kurzer Zeit. Bitte warte einen Moment und versuche es dann erneut."
         }
     },
     "sw-privileges": {
