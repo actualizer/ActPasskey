@@ -51,6 +51,21 @@ class PasskeyApiService extends ApiService {
             .delete(`_action/act-passkey/admin/credentials/${id}`, { headers: this._headers(context) })
             .then((response) => ApiService.handleResponse(response));
     }
+
+    governanceList(realm, ownerId) {
+        return this.httpClient
+            .post(`_action/act-passkey/governance/${realm}/${ownerId}/credentials`, {}, { headers: this.getBasicHeaders() })
+            .then((response) => ApiService.handleResponse(response));
+    }
+
+    // `context` is the sw-verify-user-modal result for admin users, null for customers.
+    governanceRevoke(realm, ownerId, id, context) {
+        return this.httpClient
+            .delete(`_action/act-passkey/governance/${realm}/${ownerId}/credentials/${id}`, {
+                headers: this._headers(context),
+            })
+            .then((response) => ApiService.handleResponse(response));
+    }
 }
 
 export default PasskeyApiService;

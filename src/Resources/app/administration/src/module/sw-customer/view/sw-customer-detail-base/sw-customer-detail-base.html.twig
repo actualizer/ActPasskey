@@ -1,0 +1,11 @@
+{% block sw_customer_detail_base_default_addresses_card %}
+    {% parent() %}
+
+    {% block act_passkey_customer_governance_card %}
+        <act-passkey-governance-card
+            v-if="customer && !customer.isNew() && acl.can('act_passkey.revoke_customer')"
+            realm="customer"
+            :owner-id="customer.id"
+        />
+    {% endblock %}
+{% endblock %}

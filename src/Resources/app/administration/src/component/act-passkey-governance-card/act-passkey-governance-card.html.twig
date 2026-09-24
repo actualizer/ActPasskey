@@ -1,0 +1,82 @@
+{% block act_passkey_governance %}
+<div class="act-passkey-governance">
+    {% block act_passkey_governance_card %}
+    <mt-card
+        position-identifier="act-passkey-governance"
+        :title="$t('act-passkey.manage.title')"
+        :is-loading="isLoading"
+    >
+        {% block act_passkey_governance_card_hint %}
+        <p class="act-passkey-governance__hint">
+            {{ $t('act-passkey.governance.hint') }}
+        </p>
+        {% endblock %}
+
+        {% block act_passkey_governance_card_grid %}
+        <sw-data-grid
+            v-if="passkeys.length > 0"
+            :dataSource="passkeys"
+            :columns="columns"
+            :showSelection="false"
+            :showActions="true"
+        >
+            <template #column-createdAt="{ item }">
+                <span class="sw-data-grid__cell-value">
+                    {{ formatDate(item.createdAt) }}
+                </span>
+            </template>
+
+            <template #column-lastUsedAt="{ item }">
+                <span class="sw-data-grid__cell-value">
+                    {{ item.lastUsedAt ? formatDate(item.lastUsedAt) : $t('act-passkey.manage.neverUsed') }}
+                </span>
+            </template>
+
+            <template #actions="{ item }">
+                {% block act_passkey_governance_card_action_revoke %}
+                <sw-context-menu-item variant="danger" @click="onRevoke(item)">
+                    {{ $t('act-passkey.governance.revoke') }}
+                </sw-context-menu-item>
+                {% endblock %}
+            </template>
+        </sw-data-grid>
+        {% endblock %}
+
+        {% block act_passkey_governance_card_empty %}
+        <mt-empty-state
+            v-else
+            :headline="$t('act-passkey.manage.empty')"
+        />
+        {% endblock %}
+    </mt-card>
+    {% endblock %}
+
+    {% block act_passkey_governance_confirm_modal %}
+    <sw-modal
+        v-if="revokeItem && !requiresStepUp"
+        :title="$t('act-passkey.governance.confirmTitle')"
+        variant="small"
+        @modal-close="onCancel"
+    >
+        <p>{{ $t('act-passkey.governance.confirmText', { name: revokeItem.name }) }}</p>
+
+        <template #modal-footer>
+            <mt-button size="small" variant="secondary" @click="onCancel">
+                {{ $t('global.default.cancel') }}
+            </mt-button>
+            <mt-button size="small" variant="critical" @click="onConfirm">
+                {{ $t('act-passkey.governance.revoke') }}
+            </mt-button>
+        </template>
+    </sw-modal>
+    {% endblock %}
+
+    {% block act_passkey_governance_verify_modal %}
+    <sw-verify-user-modal
+        v-if="verifyModalOpen"
+        @verified="onVerified"
+        @close="onCancel"
+    />
+    {% endblock %}
+</div>
+{% endblock %}

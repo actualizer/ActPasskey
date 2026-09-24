@@ -1,0 +1,12 @@
+{% block sw_setting_user_detail_card_roles_permissions %}
+    {% parent() %}
+
+    {# The create page extends this component: `isNew()` keeps the card off it. #}
+    {% block act_passkey_user_governance_card %}
+        <act-passkey-governance-card
+            v-if="user && !user.isNew() && acl.can('act_passkey.revoke_user')"
+            realm="user"
+            :owner-id="user.id"
+        />
+    {% endblock %}
+{% endblock %}

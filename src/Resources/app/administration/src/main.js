@@ -4,3 +4,7 @@ import './init/passkey-api-service.init';
 import './module/sw-login/view/sw-login-login';
 import './module/sw-inactivity-login/page/index';
 import './module/sw-profile/view/sw-profile-index-general';
+import './acl';
+import './component/act-passkey-governance-card';
+import './module/sw-customer/view/sw-customer-detail-base';
+import './module/sw-users-permissions/page/sw-users-permissions-user-detail';

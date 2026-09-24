@@ -11,11 +11,12 @@
                 "howTo": {
                     "title": "So funktioniert's",
                     "item1": "Das Plugin funktioniert direkt nach der Aktivierung. Die Einstellung unten ist nur für Sonderfälle mit mehreren Subdomains gedacht.",
-                    "item2": "Jede Person richtet ihre Passkeys selbst ein, für andere Benutzer oder Kunden geht das nicht. Deshalb gibt es unter <strong>Benutzer &amp; Rechte</strong> keine Passkey-Option.",
+                    "item2": "Passkeys legt jede Person selbst an, für andere Benutzer oder Kunden geht das nicht. Berechtigte Administratoren können fremde Passkeys aber <strong>widerrufen</strong> (siehe unten).",
                     "item3": "Administration: Benutzermenü unten links &gt; <strong>Dein Profil</strong> &gt; Karte <strong>Passkeys</strong> &gt; <strong>Passkey hinzufügen</strong> (Passwort bestätigen).",
                     "item4": "Kunden: im Kundenkonto unter <strong>Persönliches Profil</strong> &gt; Bereich <strong>Passkeys</strong>.",
                     "item5": "Danach bietet die Login-Seite die Anmeldung per Passkey an. Der Passwort-Login bleibt immer verfügbar.",
-                    "item6": "Kein Passkey-Button zu sehen? Die Seite muss per HTTPS auf einer Shop-Domain laufen (APP_URL oder eine Verkaufskanal-Domain), und der Browser muss Passkeys unterstützen. Bei Admin-Login per SSO können Administratoren keine Passkeys verwalten; die Storefront ist davon nicht betroffen. Ist der Admin-Login ausschließlich auf SSO gestellt, ist auch die Passkey-Anmeldung im Admin gesperrt."
+                    "item6": "Kein Passkey-Button zu sehen? Die Seite muss per HTTPS auf einer Shop-Domain laufen (APP_URL oder eine Verkaufskanal-Domain), und der Browser muss Passkeys unterstützen. Bei Admin-Login per SSO können Administratoren keine Passkeys verwalten; die Storefront ist davon nicht betroffen. Ist der Admin-Login ausschließlich auf SSO gestellt, ist auch die Passkey-Anmeldung im Admin gesperrt.",
+                    "item7": "Passkeys anderer widerrufen: <strong>Kunden</strong> &gt; Kunde &gt; Tab <strong>Allgemein</strong> bzw. <strong>Einstellungen &gt; Benutzer &amp; Rechte</strong> &gt; Benutzer, jeweils Karte <strong>Passkeys</strong>. Eingeschränkte Rollen brauchen dafür das Recht <strong>Kunden-Passkeys</strong> bzw. <strong>Benutzer-Passkeys</strong> (Löschen). Bei Benutzern wird das eigene Passwort abgefragt."
                 },
                 "openProfileLink": "Eigene Passkeys im Profil verwalten",
                 "description": "Passwortloser Login per Passkey für Storefront und Administration.",
@@ -37,6 +38,19 @@
             "columnLastUsedAt": "Zuletzt verwendet",
             "neverUsed": "Nie verwendet",
             "adminRealmSuffix": "(Administration)"
+        },
+        "governance": {
+            "hint": "Neue Passkeys kann nur die Person selbst anlegen. Nach dem Widerruf bleibt die Anmeldung per Passwort möglich.",
+            "revoke": "Passkey widerrufen",
+            "revokeSuccess": "Passkey widerrufen.",
+            "confirmTitle": "Passkey widerrufen",
+            "confirmText": "Passkey „{name}“ widerrufen? Die Anmeldung per Passwort bleibt möglich."
+        }
+    },
+    "sw-privileges": {
+        "permissions": {
+            "act_passkey_customer": { "label": "Kunden-Passkeys" },
+            "act_passkey_user": { "label": "Benutzer-Passkeys" }
         }
     }
 }
