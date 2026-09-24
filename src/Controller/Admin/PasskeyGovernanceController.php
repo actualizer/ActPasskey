@@ -4,12 +4,16 @@ namespace Actualize\Passkey\Controller\Admin;
 
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
+use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -26,8 +30,11 @@ class PasskeyGovernanceController
 {
     private const HEX_ID = '[0-9a-f]{32}';
 
-    public function __construct(private readonly CredentialRepository $credentials)
-    {
+    public function __construct(
+        private readonly CredentialRepository $credentials,
+        private readonly RateLimiter $rateLimiter,
+        private readonly LoggerInterface $logger,
+    ) {
     }
 
     #[Route(
@@ -97,9 +104,27 @@ class PasskeyGovernanceController
 
     private function revoke(Realm $realm, string $ownerId, string $id, Request $request, Context $context): Response
     {
-        $this->actorId($context);
+        $actorId = $this->actorId($context);
+        $rateLimitKey = $actorId . '-' . (string) $request->getClientIp();
 
-        $this->credentials->deleteOwned($id, $realm, $ownerId, $context);
+        try {
+            $this->rateLimiter->ensureAccepted('act_passkey_delete', $rateLimitKey);
+        } catch (RateLimitExceededException $exception) {
+            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
+        }
+
+        // No reset() on success: deleteOwned() has no throwing path, so a reset would run
+        // on every call and the bucket could never fill — the throttle would be inert.
+        if ($this->credentials->deleteOwned($id, $realm, $ownerId, $context)) {
+            // WARNING, not NOTICE: this is the audit record of an operator removing someone
+            // else's authentication factor, so it must survive a production log level.
+            $this->logger->warning('Passkey revoked by operator', [
+                'actorUserId' => $actorId,
+                'realm' => $realm->value,
+                'ownerId' => $ownerId,
+                'credentialId' => $id,
+            ]);
+        }
 
         // Always 204: "not this owner", "other realm" and "does not exist" look the same.
         return new Response(null, Response::HTTP_NO_CONTENT);
