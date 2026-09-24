@@ -7,13 +7,10 @@ use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
 use Psr\Log\LoggerInterface;
-use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
-use Shopware\Core\Framework\Api\OAuth\Scope\UserVerifiedScope;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
-use Shopware\Core\PlatformRequest;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -52,19 +49,11 @@ class PasskeyAdminManageController
     {
         $userId = $this->userId($context);
 
-        $credentials = [];
-        foreach ($this->credentials->listOwned(Realm::Admin, $userId, $context) as $credential) {
-            $credentials[] = [
-                'id' => $credential->getId(),
-                'name' => $credential->getName(),
-                'aaguid' => $credential->getAaguid(),
-                'transports' => $credential->getTransports(),
-                'createdAt' => $credential->getCreatedAt()?->format(\DATE_ATOM),
-                'lastUsedAt' => $credential->getLastUsedAt()?->format(\DATE_ATOM),
-            ];
-        }
-
-        return new JsonResponse(['credentials' => $credentials]);
+        return new JsonResponse([
+            'credentials' => CredentialListPayload::fromCollection(
+                $this->credentials->listOwned(Realm::Admin, $userId, $context)
+            ),
+        ]);
     }
 
     #[Route(
@@ -74,7 +63,7 @@ class PasskeyAdminManageController
     )]
     public function registerChallenge(Request $request, Context $context): JsonResponse
     {
-        $this->assertUserVerified($request);
+        UserVerifiedScopeGuard::assert($request);
         $userId = $this->userId($context);
 
         try {
@@ -103,7 +92,7 @@ class PasskeyAdminManageController
     )]
     public function register(Request $request, Context $context): Response
     {
-        $this->assertUserVerified($request);
+        UserVerifiedScopeGuard::assert($request);
         $userId = $this->userId($context);
         $rateLimitKey = $userId . '-' . (string) $request->getClientIp();
 
@@ -159,7 +148,7 @@ class PasskeyAdminManageController
     )]
     public function rename(string $id, Request $request, Context $context): Response
     {
-        $this->assertUserVerified($request);
+        UserVerifiedScopeGuard::assert($request);
         $name = $request->request->get('name');
         if (!is_string($name) || $name === '') {
             throw new AccessDeniedHttpException('Passkey rename failed');
@@ -180,7 +169,7 @@ class PasskeyAdminManageController
     )]
     public function delete(string $id, Request $request, Context $context): Response
     {
-        $this->assertUserVerified($request);
+        UserVerifiedScopeGuard::assert($request);
         $userId = $this->userId($context);
         $rateLimitKey = $userId . '-' . (string) $request->getClientIp();
 
@@ -216,20 +205,6 @@ class PasskeyAdminManageController
         }
 
         return $userId;
-    }
-
-    /**
-     * Same contract as core's UserController::validateScope(): a token without a
-     * fresh password confirmation must not change authentication factors. Unlike
-     * core we do not exempt non-`administration` clients — integration tokens own
-     * no passkeys and are already rejected in userId().
-     */
-    private function assertUserVerified(Request $request): void
-    {
-        $scopes = $request->attributes->get(PlatformRequest::ATTRIBUTE_OAUTH_SCOPES);
-        if (!is_array($scopes) || !in_array(UserVerifiedScope::IDENTIFIER, $scopes, true)) {
-            throw ApiException::invalidScopeAccessToken(UserVerifiedScope::IDENTIFIER);
-        }
     }
 
     private function displayName(Request $request): string
