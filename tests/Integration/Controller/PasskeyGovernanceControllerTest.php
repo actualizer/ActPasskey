@@ -246,6 +246,33 @@ final class PasskeyGovernanceControllerTest extends TestCase
         self::assertTrue($this->exists($id));
     }
 
+    /**
+     * @return iterable<string, array{0: string}>
+     */
+    public static function listRouteProvider(): iterable
+    {
+        yield 'user list' => ['user'];
+        yield 'customer list' => ['customer'];
+    }
+
+    #[DataProvider('listRouteProvider')]
+    public function testIntegrationTokenIsRejectedOnTheListRoute(string $realm): void
+    {
+        // The actor check runs before anything else in list(), so the owner does not
+        // need to exist for this to be the assertion that fails.
+        $ownerId = Uuid::randomHex();
+
+        $response = $this->apiRequest(
+            'POST',
+            self::BASE . '/' . $realm . '/' . $ownerId . '/credentials',
+            $this->integrationToken()
+        );
+
+        // An admin integration passes every ACL check — only the actor check stops it.
+        self::assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode(), (string) $response->getContent());
+        self::assertStringContainsString('user session', (string) $response->getContent());
+    }
+
     public function testUnknownOwnerListsNothingAndRevokesNothing(): void
     {
         $token = $this->token($this->createUser(), 'write');
