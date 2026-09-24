@@ -4,6 +4,7 @@ namespace Actualize\Passkey\OAuth;
 
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Doctrine\DBAL\Connection;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Grant\AbstractGrant;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
@@ -13,6 +14,7 @@ use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\Api\OAuth\Scope\WriteScope;
 use Shopware\Core\Framework\Api\OAuth\User\User;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\Uuid\Uuid;
 
 /**
  * Custom OAuth2 grant: turns a verified admin WebAuthn assertion into a
@@ -27,6 +29,8 @@ class PasskeyGrant extends AbstractGrant
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         private readonly AuthenticationCeremony $authenticationCeremony,
         private readonly LoggerInterface $logger,
+        private readonly AdminLoginPolicy $loginPolicy,
+        private readonly Connection $connection,
     ) {
         $this->setRefreshTokenRepository($refreshTokenRepository);
     }
@@ -41,6 +45,12 @@ class PasskeyGrant extends AbstractGrant
         ResponseTypeInterface $responseType,
         \DateInterval $accessTokenTTL,
     ): ResponseTypeInterface {
+        // Checked before the ceremony so an SSO-only shop never even consumes a challenge.
+        if (!$this->loginPolicy->allowsNonSsoLogin()) {
+            $this->logger->notice('Passkey admin login rejected: the shop allows SSO login only');
+            throw OAuthServerException::invalidGrant();
+        }
+
         $client = $this->getClientEntityOrFail('administration', $request);
         $scopes = $this->validateScopes($this->getRequestParameter('scope', $request, $this->defaultScope));
 
@@ -104,6 +114,27 @@ class PasskeyGrant extends AbstractGrant
         // AuthenticationCeremony::verify() is typed `string`, not `non-empty-string` — defend
         // against an empty resolved id before it reaches User's non-empty-string constructor.
         if ($userId === '') {
+            throw OAuthServerException::invalidGrant();
+        }
+
+        $user = $this->connection->fetchAssociative(
+            'SELECT `active`, `username` FROM `user` WHERE `id` = :id',
+            ['id' => Uuid::fromHexToBytes($userId)]
+        );
+
+        // Same check as core's password grant, done before any token is issued: the
+        // per-request active check alone would still leave a refresh token persisted.
+        if ($user === false || !(bool) $user['active']) {
+            $this->logger->notice('Passkey admin login rejected: the user is inactive');
+            throw OAuthServerException::invalidGrant();
+        }
+
+        // The inactivity screen sends the logged-out user's name: core pins its password
+        // re-login to that user, and the usernameless prompt must not let another admin
+        // take over the old session's tabs. Refused here, before a token exists.
+        $expectedUsername = $this->getRequestParameter('passkey_expected_username', $request);
+        if (is_string($expectedUsername) && $expectedUsername !== '' && $expectedUsername !== $user['username']) {
+            $this->logger->notice('Passkey admin login rejected: passkey belongs to a different user');
             throw OAuthServerException::invalidGrant();
         }
 

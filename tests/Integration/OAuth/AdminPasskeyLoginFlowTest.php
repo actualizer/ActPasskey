@@ -9,9 +9,11 @@ use Actualize\Passkey\WebAuthn\Credential\Realm;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\KernelLifecycleManager;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\System\User\UserEntity;
 use Shopware\Core\Test\TestDefaults;
 
 /**
@@ -225,6 +227,111 @@ final class AdminPasskeyLoginFlowTest extends TestCase
         ]);
 
         $this->assertInvalidGrant($response);
+    }
+
+    /**
+     * The password grant refuses a deactivated user before issuing anything. The passkey
+     * grant must too — otherwise a disabled account still receives a persisted refresh token.
+     */
+    public function testInactiveAdminUserIsRejected(): void
+    {
+        $ctx = Context::createDefaultContext();
+        $adminUserId = $this->createAdminUser();
+
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $create = $reg->createOptions(Realm::Admin, $adminUserId, $this->host, $ctx);
+        $reg->verify(
+            Realm::Admin,
+            $adminUserId,
+            SoftwareAuthenticator::respondToCreate($create['options'], $this->origin),
+            $create['challengeId'],
+            $this->host,
+            'Test Key',
+            $ctx
+        );
+
+        /** @var EntityRepository $userRepository */
+        $userRepository = $this->getContainer()->get('user.repository');
+        $userRepository->update([['id' => $adminUserId, 'active' => false]], $ctx);
+
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $assertion = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+
+        $response = $this->requestToken([
+            'grant_type' => 'passkey',
+            'client_id' => 'administration',
+            'scope' => 'write',
+            'passkey_response' => $assertion,
+            'passkey_challenge_id' => $req['challengeId'],
+        ]);
+
+        $this->assertInvalidGrant($response);
+    }
+
+    /**
+     * The inactivity screen may only be resumed by the user who was logged out. Core pins
+     * its password re-login to `lastKnownUser`; the usernameless passkey prompt sends that
+     * name as `passkey_expected_username`, and another admin's passkey must be refused
+     * before a token exists — the screen would otherwise hand the old session's tabs over.
+     */
+    public function testExpectedUsernameMismatchIsRejected(): void
+    {
+        $response = $this->requestTokenForNewAdmin(Uuid::randomHex());
+
+        $this->assertInvalidGrant($response);
+    }
+
+    public function testMatchingExpectedUsernameIssuesToken(): void
+    {
+        $response = $this->requestTokenForNewAdmin(null, true);
+
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+    }
+
+    /**
+     * Registers a passkey for a fresh admin and redeems it with `passkey_expected_username`
+     * set to `$expectedUsername`, or to the admin's own name when `$useOwnName` is true.
+     */
+    private function requestTokenForNewAdmin(
+        ?string $expectedUsername,
+        bool $useOwnName = false
+    ): \Symfony\Component\HttpFoundation\Response {
+        $ctx = Context::createDefaultContext();
+        $adminUserId = $this->createAdminUser();
+
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $create = $reg->createOptions(Realm::Admin, $adminUserId, $this->host, $ctx);
+        $reg->verify(
+            Realm::Admin,
+            $adminUserId,
+            SoftwareAuthenticator::respondToCreate($create['options'], $this->origin),
+            $create['challengeId'],
+            $this->host,
+            'Test Key',
+            $ctx
+        );
+
+        if ($useOwnName) {
+            /** @var EntityRepository $userRepository */
+            $userRepository = $this->getContainer()->get('user.repository');
+            $user = $userRepository->search(new Criteria([$adminUserId]), $ctx)->getEntities()->first();
+            self::assertInstanceOf(UserEntity::class, $user);
+            $expectedUsername = $user->getUsername();
+        }
+
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $assertion = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+
+        return $this->requestToken([
+            'grant_type' => 'passkey',
+            'client_id' => 'administration',
+            'scope' => 'write',
+            'passkey_response' => $assertion,
+            'passkey_challenge_id' => $req['challengeId'],
+            'passkey_expected_username' => $expectedUsername,
+        ]);
     }
 
     public function testCustomerCredentialRejectedAtAdminTokenEndpoint(): void

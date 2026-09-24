@@ -15,7 +15,7 @@
                     "item3": "Administration: Benutzermenü unten links &gt; <strong>Dein Profil</strong> &gt; Karte <strong>Passkeys</strong> &gt; <strong>Passkey hinzufügen</strong> (Passwort bestätigen).",
                     "item4": "Kunden: im Kundenkonto unter <strong>Persönliches Profil</strong> &gt; Bereich <strong>Passkeys</strong>.",
                     "item5": "Danach bietet die Login-Seite die Anmeldung per Passkey an. Der Passwort-Login bleibt immer verfügbar.",
-                    "item6": "Kein Passkey-Button zu sehen? Die Seite muss per HTTPS auf einer Shop-Domain laufen (APP_URL oder eine Verkaufskanal-Domain), und der Browser muss Passkeys unterstützen. Bei Admin-Login per SSO können Administratoren keine Passkeys verwalten; die Storefront ist davon nicht betroffen."
+                    "item6": "Kein Passkey-Button zu sehen? Die Seite muss per HTTPS auf einer Shop-Domain laufen (APP_URL oder eine Verkaufskanal-Domain), und der Browser muss Passkeys unterstützen. Bei Admin-Login per SSO können Administratoren keine Passkeys verwalten; die Storefront ist davon nicht betroffen. Ist der Admin-Login ausschließlich auf SSO gestellt, ist auch die Passkey-Anmeldung im Admin gesperrt."
                 },
                 "openProfileLink": "Eigene Passkeys im Profil verwalten",
                 "description": "Passwortloser Login per Passkey für Storefront und Administration.",

@@ -13,7 +13,9 @@ Component.override('sw-inactivity-login', {
             this.passwordError = null;
 
             try {
-                await this.loginService.loginByPasskey();
+                // Core pins the password re-login to lastKnownUser; the usernameless
+                // passkey prompt must not let another admin resume this session.
+                await this.loginService.loginByPasskey(this.lastKnownUser);
                 this.handleLoginSuccess();
             } catch {
                 this.passwordError = {

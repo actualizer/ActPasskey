@@ -2,8 +2,10 @@
 
 namespace Actualize\Passkey\Tests\Integration\OAuth;
 
+use Actualize\Passkey\OAuth\AdminLoginPolicy;
 use Actualize\Passkey\OAuth\PasskeyGrant;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
+use Doctrine\DBAL\Connection;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -21,7 +23,13 @@ final class PasskeyGrantIdentifierTest extends TestCase
     public function testIdentifierIsPasskey(): void
     {
         $ceremony = $this->getContainer()->get(AuthenticationCeremony::class);
-        $grant = new PasskeyGrant($this->createMock(RefreshTokenRepositoryInterface::class), $ceremony, new NullLogger());
+        $grant = new PasskeyGrant(
+            $this->createMock(RefreshTokenRepositoryInterface::class),
+            $ceremony,
+            new NullLogger(),
+            new AdminLoginPolicy([]),
+            $this->getContainer()->get(Connection::class),
+        );
 
         self::assertSame('passkey', $grant->getIdentifier());
     }

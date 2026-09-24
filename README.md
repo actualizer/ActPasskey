@@ -67,7 +67,7 @@ If the register button does not appear, the page is not running on a covered HTT
 
 Registering, renaming or revoking a passkey requires confirming the account password. Shopware only issues the required `user-verified` scope through the password grant, so this step-up is unavailable to administrators who sign in via SSO — on shops where the **administration** login is delegated to an identity provider, the admin self-service routes return HTTP 403.
 
-The passkey **login** itself and the entire storefront side are unaffected.
+The passkey **login** itself and the entire storefront side are unaffected — unless the shop is SSO-only. With `shopware.admin_login.use_default: false` (an experimental core YAML setting that disables the password login), the administration refuses the passkey login as well, exactly like the password grant.
 
 This fails closed by design. Shopware core skips its own step-up under SSO, but core uses that check to guard profile edits, whereas this plugin uses it to guard the enrollment of an authentication factor. A passkey enrolled locally would keep working after the account is deprovisioned in the central identity provider — bypassing the very control SSO exists for. Proper support means requiring a fresh SSO re-authentication instead of a password prompt; that is a separate feature, not a configuration toggle.
 

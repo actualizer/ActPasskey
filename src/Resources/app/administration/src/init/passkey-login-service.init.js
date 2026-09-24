@@ -29,7 +29,11 @@ Application.addServiceProviderDecorator('loginService', (loginService) => {
     const httpClient = Application.getContainer('init').httpClient;
     const context = Shopware.Context.api;
 
-    loginService.loginByPasskey = async function loginByPasskey() {
+    /**
+     * @param {string} [expectedUsername] pins the login to this user (inactivity screen);
+     *     the grant refuses any other user's passkey before issuing a token.
+     */
+    loginService.loginByPasskey = async function loginByPasskey(expectedUsername = '') {
         if (!window.PublicKeyCredential) {
             throw new Error('passkey-unsupported');
         }
@@ -73,6 +77,7 @@ Application.addServiceProviderDecorator('loginService', (loginService) => {
                 scope: 'write',
                 passkey_response: JSON.stringify(assertion),
                 passkey_challenge_id: challengeId,
+                passkey_expected_username: expectedUsername,
             },
             { baseURL: context.apiPath },
         );

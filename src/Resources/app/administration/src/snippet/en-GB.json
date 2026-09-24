@@ -15,7 +15,7 @@
                     "item3": "Administration: user menu bottom left &gt; <strong>Your profile</strong> &gt; <strong>Passkeys</strong> card &gt; <strong>Register new passkey</strong> (confirm password).",
                     "item4": "Customers: in the customer account under <strong>Your profile</strong> &gt; <strong>Passkeys</strong> section.",
                     "item5": "The login page then offers passkey sign-in. Password login always stays available.",
-                    "item6": "No passkey button? The page must run via HTTPS on a shop domain (APP_URL or a sales channel domain), and the browser must support passkeys. With SSO admin login, administrators cannot manage passkeys; the storefront is unaffected."
+                    "item6": "No passkey button? The page must run via HTTPS on a shop domain (APP_URL or a sales channel domain), and the browser must support passkeys. With SSO admin login, administrators cannot manage passkeys; the storefront is unaffected. If the admin login is restricted to SSO only, the passkey admin login is disabled as well."
                 },
                 "openProfileLink": "Manage your own passkeys in your profile",
                 "description": "Passwordless passkey login for the storefront and the administration.",
