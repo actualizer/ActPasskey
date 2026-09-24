@@ -106,11 +106,11 @@ A passkey name is limited to 128 characters. Registering a passkey with a longer
 
 ## Logging
 
-Passkey diagnostics go to a dedicated `act_passkey` log channel, so they can be filtered — or silenced — without touching the rest of the Shopware log. Logging never alters a response: every ceremony stays fail-closed, and the log only records why one failed. No WebAuthn payloads or credential data are written.
+Passkey diagnostics go to a dedicated `act_passkey` log channel, so they can be filtered — or silenced — without touching the rest of the Shopware log. WARNING-level records of that channel go to the plugin's own rotating file, `var/log/act_passkey_<environment>-<date>.log` (kept 30 days); NOTICE-level records follow the shop's normal Shopware log configuration instead. Logging never alters a response: every ceremony stays fail-closed, and the log only records why one failed. No WebAuthn payloads or credential data are written.
 
 Public authentication attempts (storefront login, the administration grant, the profile listing) log at NOTICE. A normal production log level does not write NOTICE, so failed or automated login attempts cannot bloat the log, while the detail becomes available as soon as an operator lowers the level for diagnosis. Operations that run after authentication — enrollment, rename, revoke — log at WARNING, because a failure there is genuinely unexpected.
 
-Revocations by an operator are the one exception to that rule: they are written at WARNING as an audit record — who revoked which passkey of which account — so they appear under a normal production log level.
+Shopware's default production configuration only writes `error` and above, which would otherwise discard these WARNING-level records — this is why the plugin ships its own rotating file handler for the channel (see above). Operator revocations are written there as the audit record — who revoked which passkey of which account. NOTICE-level diagnostics still require lowering the level.
 
 ## Compatibility
 

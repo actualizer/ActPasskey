@@ -8,6 +8,22 @@
 # of failed/bot logins cannot bloat the log, yet visible once an operator lowers
 # the level for diagnosis. Post-authentication operations (enrollment, rename,
 # delete) log at WARNING, since a failure there is genuinely unexpected.
+#
+# Shopware core's own prod config (vendor/shopware/core/.../packages/prod/monolog.yaml)
+# sets `main: fingers_crossed, action_level: error` with a nested `error`-level handler,
+# and this plugin ships no other monolog config of its own — so on a standard production
+# shop, WARNING-level records on the `act_passkey` channel would be discarded before ever
+# reaching a handler. The handler below is therefore dedicated to this channel alone, so
+# its WARNING-level audit (operator revocation) and enrollment/rename/delete records
+# survive a production log level regardless of core's own handler chain. NOTICE-level
+# diagnostics are unaffected by this handler and still require lowering the level.
 monolog:
     channels:
         - act_passkey
+    handlers:
+        act_passkey:
+            type: rotating_file
+            path: "%kernel.logs_dir%/act_passkey_%kernel.environment%.log"
+            level: warning
+            channels: [act_passkey]
+            max_files: 30
