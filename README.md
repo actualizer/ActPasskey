@@ -10,6 +10,7 @@ Passkeys are additive: the password login keeps working for every account. Anyon
 - Passwordless login via Passkeys (WebAuthn) for administration users
 - Usernameless sign-in (discoverable credentials): the browser offers the matching passkey, no username needed
 - Self-service management: register, rename and revoke your own passkeys from the admin profile page or the customer account
+- Operator revocation: authorised administrators can revoke — never create — the passkeys of other admin users and customers
 - Admin and customer passkeys are strictly separated: a customer passkey can never authenticate an administrator
 - Multi-domain aware: on a shop serving several storefront domains, each passkey is bound to the domain it was created on, so every domain issues and accepts its own domain-correct passkeys
 
@@ -41,7 +42,7 @@ bin/console cache:clear
 
 ## Usage
 
-Passkeys are self-service: every account registers its own passkeys. An administrator cannot create a passkey for another user, so there is no passkey option in *Settings > System > Users & permissions*.
+Passkeys are self-service: every account registers its own passkeys. An administrator cannot create a passkey for another user; the **Passkeys** card in *Users & permissions* and in the customer detail only lets authorised administrators revoke existing ones (see [Revoking passkeys of other accounts](#revoking-passkeys-of-other-accounts)).
 
 ### Administration
 
@@ -61,6 +62,15 @@ The storefront login page then offers passkey sign-in.
 
 If the register button does not appear, the page is not running on a covered HTTPS domain or the browser lacks WebAuthn support (see [Domain coverage](#domain-coverage)).
 
+### Revoking passkeys of other accounts
+
+A password reset lets the owner back into a compromised account, but it does **not** remove a passkey an attacker may have added. An authorised administrator can therefore revoke passkeys of other accounts. Revoking only deletes: nobody can create or rename a passkey for someone else, and the account's password login keeps working.
+
+- **Customers:** *Customers > [customer] > General* tab, **Passkeys** card.
+- **Administration users:** *Settings > System > Users & permissions > [user]*, **Passkeys** card. Revoking an administration user's passkey asks for your password, as every change in *Users & permissions* does.
+
+Full administrators can always revoke. For restricted roles, grant **Customer passkeys** (under *Customers*) or **User passkeys** (under *Settings*) with the *Delete* permission in *Users & permissions > Roles*. Every revocation is recorded in the log (see [Logging](#logging)).
+
 ## Known limitations
 
 ### Administration SSO
@@ -70,6 +80,8 @@ Registering, renaming or revoking a passkey requires confirming the account pass
 The passkey **login** itself and the entire storefront side are unaffected — unless the shop is SSO-only. With `shopware.admin_login.use_default: false` (an experimental core YAML setting that disables the password login), the administration refuses the passkey login as well, exactly like the password grant.
 
 This fails closed by design. Shopware core skips its own step-up under SSO, but core uses that check to guard profile edits, whereas this plugin uses it to guard the enrollment of an authentication factor. A passkey enrolled locally would keep working after the account is deprovisioned in the central identity provider — bypassing the very control SSO exists for. Proper support means requiring a fresh SSO re-authentication instead of a password prompt; that is a separate feature, not a configuration toggle.
+
+For the same reason, administrators signed in via SSO cannot revoke other **administration users'** passkeys. Revoking **customer** passkeys asks for no password confirmation and stays available.
 
 ### Domain coverage
 
@@ -97,6 +109,8 @@ A passkey name is limited to 128 characters. Registering a passkey with a longer
 Passkey diagnostics go to a dedicated `act_passkey` log channel, so they can be filtered — or silenced — without touching the rest of the Shopware log. Logging never alters a response: every ceremony stays fail-closed, and the log only records why one failed. No WebAuthn payloads or credential data are written.
 
 Public authentication attempts (storefront login, the administration grant, the profile listing) log at NOTICE. A normal production log level does not write NOTICE, so failed or automated login attempts cannot bloat the log, while the detail becomes available as soon as an operator lowers the level for diagnosis. Operations that run after authentication — enrollment, rename, revoke — log at WARNING, because a failure there is genuinely unexpected.
+
+Revocations by an operator are the one exception to that rule: they are written at WARNING as an audit record — who revoked which passkey of which account — so they appear under a normal production log level.
 
 ## Compatibility
 
