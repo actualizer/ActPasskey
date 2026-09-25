@@ -32,7 +32,7 @@ final class SoftwareAuthenticator
     /**
      * @return string JSON of the browser PublicKeyCredential (attestation)
      */
-    public static function respondToCreate(string $optionsJson, string $origin): string
+    public static function respondToCreate(string $optionsJson, string $origin, int $credentialIdLength = 32): string
     {
         /** @var array{challenge: string, rp: array{id: string}, user: array{id: string}} $options */
         $options = json_decode($optionsJson, true, 512, JSON_THROW_ON_ERROR);
@@ -55,7 +55,7 @@ final class SoftwareAuthenticator
         }
         openssl_pkey_export($keyPair, $pem);
 
-        $credentialId = random_bytes(32);
+        $credentialId = random_bytes($credentialIdLength);
         $cosePublicKey = self::coseEs256Key($details['ec']['x'], $details['ec']['y']);
 
         $flags = 0x01 | 0x04 | 0x40; // UP | UV | AT

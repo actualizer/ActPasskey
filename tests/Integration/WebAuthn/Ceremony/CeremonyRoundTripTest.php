@@ -79,6 +79,28 @@ final class CeremonyRoundTripTest extends TestCase
         self::assertSame($accountId, $resolved);
     }
 
+    public function testMaximumLengthCredentialIdRoundTrips(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        // 1023 bytes is the WebAuthn maximum the library accepts.
+        $create = $reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx);
+        $attJson = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin, 1023);
+        $reg->verify(Realm::Admin, $accountId, $attJson, $create['challengeId'], $this->host, 'Test Key', $ctx);
+
+        $credentials = $this->getContainer()->get(CredentialRepository::class);
+        $stored = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first();
+        self::assertNotNull($stored);
+        self::assertSame(1023, strlen($stored->getCredentialId()), 'the id must be stored untruncated');
+
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+        self::assertSame($accountId, $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx));
+    }
+
     public function testCustomerCredentialRejectedAtAdminRealm(): void
     {
         $reg = $this->getContainer()->get(RegistrationCeremony::class);
