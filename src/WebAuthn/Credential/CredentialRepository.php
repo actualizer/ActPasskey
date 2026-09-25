@@ -34,7 +34,7 @@ final class CredentialRepository
             ->addFilter(new EqualsFilter('realm', $realm->value))
             ->setLimit(1);
 
-        $entity = $this->credentialRepository->search($criteria, $context)->first();
+        $entity = $this->credentialRepository->search($criteria, $context)->getEntities()->first();
 
         return $entity instanceof PasskeyCredentialEntity ? $entity : null;
     }

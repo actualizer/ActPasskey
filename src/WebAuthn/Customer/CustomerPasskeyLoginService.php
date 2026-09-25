@@ -56,6 +56,7 @@ final class CustomerPasskeyLoginService
 
         $customer = $this->customerRepository
             ->search(new Criteria([$customerId]), $context->getContext())
+            ->getEntities()
             ->first();
 
         if (!$customer instanceof CustomerEntity) {

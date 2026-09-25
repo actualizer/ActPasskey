@@ -54,7 +54,7 @@ final class UserHandleProvider
             ->setLimit(1);
 
         /** @var PasskeyUserHandleEntity|null $entity */
-        $entity = $this->userHandleRepository->search($criteria, $context)->first();
+        $entity = $this->userHandleRepository->search($criteria, $context)->getEntities()->first();
 
         return $entity;
     }
