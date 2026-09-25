@@ -10,6 +10,7 @@ use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard;
 use Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService;
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
@@ -234,6 +235,43 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
         $response = $controller->login($this->buildHostRequest(), $requestDataBag, $salesChannelContext);
 
         self::assertInstanceOf(ContextTokenResponse::class, $response);
+    }
+
+    /**
+     * The eligibility guard lets this customer through; only AccountService::loginById()
+     * refuses it, because the account is bound to another sales channel. Pins that the
+     * stamp runs after loginById(), not merely after the guard.
+     */
+    public function testLoginRefusedByTheAccountServiceDoesNotStampLastUsedAt(): void
+    {
+        $otherSalesChannelId = $this->getContainer()->get(Connection::class)->fetchOne(
+            'SELECT LOWER(HEX(`id`)) FROM `sales_channel` WHERE `id` != :id LIMIT 1',
+            ['id' => Uuid::fromHexToBytes(TestDefaults::SALES_CHANNEL)]
+        );
+        self::assertIsString($otherSalesChannelId, 'the test database needs a second sales channel');
+
+        $controller = $this->getContainer()->get(PasskeyStoreApiController::class);
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer(['boundSalesChannelId' => $otherSalesChannelId]);
+
+        $this->registerPasskey(Realm::Customer, $customerId, $ctx);
+
+        $salesChannelContext = $this->createStorefrontContext();
+        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx, $salesChannelContext);
+
+        try {
+            $controller->login($this->buildHostRequest(), $requestDataBag, $salesChannelContext);
+            self::fail('loginById() must refuse a customer bound to another sales channel');
+        } catch (CustomerException) {
+            // expected
+        }
+
+        $stored = $this->getContainer()->get(CredentialRepository::class)
+            ->listOwned(Realm::Customer, $customerId, $ctx)
+            ->first();
+        self::assertNotNull($stored);
+        self::assertNull($stored->getLastUsedAt(), 'a refused login must not look like a recent use');
+        self::assertSame(1, $stored->getSignCount(), 'the counter still advances for clone detection');
     }
 
     public function testAFailedLastUsedStampDoesNotFailAnAcceptedLogin(): void
