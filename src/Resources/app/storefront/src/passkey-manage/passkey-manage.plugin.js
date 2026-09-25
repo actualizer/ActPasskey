@@ -1,3 +1,5 @@
+import { base64UrlToBuffer, bufferToBase64Url } from '../util/base64url';
+
 const Plugin = window.PluginBaseClass;
 
 /**
@@ -154,14 +156,14 @@ export default class PasskeyManage extends Plugin {
 
             const publicKey = {
                 ...options,
-                challenge: this._base64UrlToBuffer(options.challenge),
+                challenge: base64UrlToBuffer(options.challenge),
                 user: {
                     ...options.user,
-                    id: this._base64UrlToBuffer(options.user.id),
+                    id: base64UrlToBuffer(options.user.id),
                 },
                 excludeCredentials: (options.excludeCredentials || []).map((credential) => ({
                     ...credential,
-                    id: this._base64UrlToBuffer(credential.id),
+                    id: base64UrlToBuffer(credential.id),
                 })),
             };
 
@@ -169,11 +171,11 @@ export default class PasskeyManage extends Plugin {
 
             const attestation = {
                 id: credential.id,
-                rawId: this._bufferToBase64Url(credential.rawId),
+                rawId: bufferToBase64Url(credential.rawId),
                 type: credential.type,
                 response: {
-                    clientDataJSON: this._bufferToBase64Url(credential.response.clientDataJSON),
-                    attestationObject: this._bufferToBase64Url(credential.response.attestationObject),
+                    clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                    attestationObject: bufferToBase64Url(credential.response.attestationObject),
                 },
                 clientExtensionResults: credential.getClientExtensionResults
                     ? credential.getClientExtensionResults()
@@ -224,25 +226,5 @@ export default class PasskeyManage extends Plugin {
             return;
         }
         this.errorBox.hidden = true;
-    }
-
-    _base64UrlToBuffer(value) {
-        const padding = '='.repeat((4 - (value.length % 4)) % 4);
-        const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
-        const binary = atob(base64);
-        const buffer = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i += 1) {
-            buffer[i] = binary.charCodeAt(i);
-        }
-        return buffer.buffer;
-    }
-
-    _bufferToBase64Url(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i += 1) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 }
