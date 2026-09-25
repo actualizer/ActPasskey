@@ -6,7 +6,7 @@ use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialCollection;
 
 /**
  * The one list shape every passkey listing returns, admin and store-api alike. Deliberately without key
- * material: credential id, public key, sign count and user handle never leave the server.
+ * material: no listing contains the credential id, public key, sign count or user handle.
  */
 final class CredentialListPayload
 {
