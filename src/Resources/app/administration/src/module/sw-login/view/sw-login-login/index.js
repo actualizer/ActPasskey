@@ -22,6 +22,7 @@ Component.override('sw-login-login', {
             this.$emit('is-loading');
 
             try {
+                this.loginService.setRememberMe(this.rememberMe);
                 await this.loginService.loginByPasskey();
                 await this.handleLoginSuccess();
                 this.$emit('is-not-loading');

@@ -34,8 +34,8 @@ final class CustomerPasskeyLoginService
     public function login(string $rawResponseJson, string $challengeId, string $host, SalesChannelContext $context): string
     {
         try {
-            // Bound to the context that fetched the challenge: a cross-site POST lacks
-            // the Lax session cookie, gets a fresh context token and is rejected.
+            // Redeemable only in the context that fetched the challenge; an attacker
+            // cannot obtain a challenge bound to the victim's context token.
             $customerId = $this->authenticationCeremony->verify(
                 Realm::Customer,
                 $rawResponseJson,
