@@ -76,11 +76,9 @@ final class ChallengeStore {
             if (($data['purpose'] ?? null) !== $purpose->value || ($data['realm'] ?? null) !== $realm->value) {
                 return null;
             }
-            // A bound challenge is only redeemable in the context it was issued to,
-            // and an unbound one only without a context. Without this, a challenge
-            // fetched by an attacker for their own account could be redeemed by a
-            // victim's browser via a cross-site POST, logging the victim into the
-            // attacker's account.
+            // Exact match: a bound challenge only redeems in its own context, an unbound
+            // one only without one — otherwise a cross-site POST could log a victim
+            // into the attacker's account.
             $stored = $data['binding'] ?? null;
             $matches = $binding === null
                 ? $stored === null

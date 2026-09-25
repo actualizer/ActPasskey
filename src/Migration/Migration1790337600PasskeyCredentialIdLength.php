@@ -14,11 +14,8 @@ class Migration1790337600PasskeyCredentialIdLength extends MigrationStep
 
     public function update(Connection $connection): void
     {
-        // WebAuthn allows credential ids of up to 1023 bytes. At 255 a longer id
-        // failed the insert (strict SQL mode) or was silently truncated and could
-        // never log in again. MODIFY to the same definition is a no-op, so the
-        // step is safe to re-run. 1023 bytes stays below the 3072-byte InnoDB
-        // index limit, so the unique key is kept as is.
+        // WebAuthn credential ids may be up to 1023 bytes (still within the InnoDB
+        // index limit for the unique key). Re-running MODIFY is a no-op.
         $connection->executeStatement(
             'ALTER TABLE `act_passkey_credential` MODIFY `credential_id` VARBINARY(1023) NOT NULL'
         );

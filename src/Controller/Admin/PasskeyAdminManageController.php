@@ -158,8 +158,8 @@ class PasskeyAdminManageController
             throw new AccessDeniedHttpException('Passkey rename failed');
         }
 
-        // Before the repository call, and independent of the id: renameOwned()
-        // refuses an over-long name too, but silently, which read as a success.
+        // renameOwned() drops an over-long name silently; validate first, and for
+        // any id, so the error is no existence oracle.
         $this->validateName($name);
 
         // Return value intentionally ignored: "not yours" and "does not exist"
