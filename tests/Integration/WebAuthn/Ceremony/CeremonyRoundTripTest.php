@@ -12,9 +12,6 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Test\TestDefaults;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Session\Session;
-use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Webauthn\Exception\AuthenticatorResponseVerificationException;
 use Webauthn\Exception\CounterException;
 
@@ -36,11 +33,6 @@ final class CeremonyRoundTripTest extends TestCase
         $appUrl = (string) $this->getContainer()->getParameter('APP_URL');
         $this->host = (string) parse_url($appUrl, PHP_URL_HOST);
         $this->origin = rtrim($appUrl, '/');
-
-        // ChallengeStore is session-bound; push a request carrying a session.
-        $request = new Request();
-        $request->setSession(new Session(new MockArraySessionStorage()));
-        $this->getContainer()->get('request_stack')->push($request);
     }
 
     public function testRegisterThenAuthenticateResolvesSameAccount(): void
