@@ -104,6 +104,12 @@ Component.override('sw-profile-index-general', {
                 return;
             }
 
+            // The unchanged name is no rename: close without a password step-up or request.
+            if (name === (this.passkeyRenameItem.name || '').trim()) {
+                this.onPasskeyRenameCancel();
+                return;
+            }
+
             this.pendingAction = { type: 'rename', id: this.passkeyRenameItem.id, name };
             this.passkeyRenameItem = null;
             this.passkeyRenameValue = '';

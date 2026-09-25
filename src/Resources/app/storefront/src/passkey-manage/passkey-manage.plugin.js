@@ -89,6 +89,16 @@ export default class PasskeyManage extends Plugin {
                 deleteCancel.addEventListener('click', () => collapse(deleteToggle));
             }
 
+            // Saving the unchanged name is no rename: close the form instead of
+            // sending a request that would report a change that never happened.
+            renameForm.addEventListener('submit', (event) => {
+                const input = renameForm.querySelector('input[name="name"]');
+                if (input && input.value.trim() === input.defaultValue.trim()) {
+                    event.preventDefault();
+                    collapse(renameToggle);
+                }
+            });
+
             renameToggle?.addEventListener('click', () => {
                 if (renameForm.hidden) {
                     expand(renameForm, renameToggle);
