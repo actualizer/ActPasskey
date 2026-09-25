@@ -4,6 +4,7 @@ namespace Actualize\Passkey\WebAuthn\Credential;
 
 use Actualize\Passkey\Entity\PasskeyUserHandle\PasskeyUserHandleCollection;
 use Actualize\Passkey\Entity\PasskeyUserHandle\PasskeyUserHandleEntity;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -28,13 +29,24 @@ final class UserHandleProvider
 
         $handle = random_bytes(32);
 
-        // The definition denies writes outside system scope; this is the only sanctioned way in.
-        $context->scope(Context::SYSTEM_SCOPE, fn (Context $systemContext) => $this->userHandleRepository->create([[
-            'id' => Uuid::randomHex(),
-            'realm' => $realm->value,
-            'accountId' => $accountId,
-            'userHandle' => $handle,
-        ]], $systemContext));
+        try {
+            // The definition denies writes outside system scope; this is the only sanctioned way in.
+            $context->scope(Context::SYSTEM_SCOPE, fn (Context $systemContext) => $this->userHandleRepository->create([[
+                'id' => Uuid::randomHex(),
+                'realm' => $realm->value,
+                'accountId' => $accountId,
+                'userHandle' => $handle,
+            ]], $systemContext));
+        } catch (UniqueConstraintViolationException $exception) {
+            // A concurrent request of the same account inserted its handle between
+            // find() and create(). The unique key kept exactly one — use that one.
+            $existing = $this->find($realm, 'accountId', $accountId, $context);
+            if ($existing === null) {
+                throw $exception;
+            }
+
+            return $existing->getUserHandle();
+        }
 
         return $handle;
     }
