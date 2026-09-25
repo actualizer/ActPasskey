@@ -3,6 +3,7 @@
 namespace Actualize\Passkey\Tests\Integration\Storefront;
 
 use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialEntity;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
@@ -77,6 +78,15 @@ final class PasskeyAccessibilityMarkupTest extends TestCase
             );
             self::assertNotSame('', trim((string) $label->textContent), "the label for {$id} carries text");
         }
+    }
+
+    public function testRenameInputIsCappedAtTheNameLimit(): void
+    {
+        $xpath = $this->xpathFor($this->renderPasskeyCard());
+
+        $input = $this->single($xpath, "//form[@data-act-passkey-rename-form]//input[@name='name']");
+
+        self::assertSame((string) CredentialRepository::MAX_NAME_LENGTH, $input->getAttribute('maxlength'));
     }
 
     public function testPasswordFieldsReferenceTheirHint(): void

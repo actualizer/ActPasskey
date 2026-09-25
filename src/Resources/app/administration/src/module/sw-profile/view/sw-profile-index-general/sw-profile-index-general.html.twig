@@ -81,6 +81,7 @@
                 v-model="passkeyRenameValue"
                 name="act-passkey-rename-name"
                 :label="$t('act-passkey.manage.renamePrompt')"
+                :max-length="128"
             />
             {% endblock %}
 

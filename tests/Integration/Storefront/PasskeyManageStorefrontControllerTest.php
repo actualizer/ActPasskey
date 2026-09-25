@@ -117,6 +117,28 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
         self::assertStringContainsString('could not be completed', (string) $profileResponse->getContent());
     }
 
+    public function testOverLongRenameShowsAnErrorFlashAndKeepsTheName(): void
+    {
+        $customerId = $this->createLoggedInCustomer();
+        $credential = $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext())->first();
+        self::assertNotNull($credential);
+
+        $response = $this->request('POST', 'account/passkey/' . $credential->getId() . '/rename', [
+            'name' => str_repeat('a', CredentialRepository::MAX_NAME_LENGTH + 1),
+        ]);
+
+        self::assertSame(302, $response->getStatusCode(), (string) $response->getContent());
+        self::assertStringContainsString('/account/profile', (string) $response->headers->get('Location'));
+
+        $stored = $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext())->first();
+        self::assertSame('Login Key', $stored?->getName());
+
+        // The test storefront domain resolves the en_GB storefront snippet set.
+        $profile = (string) $this->request('GET', 'account/profile', [])->getContent();
+        self::assertStringContainsString('could not be completed', $profile);
+        self::assertStringNotContainsString('Passkey renamed.', $profile);
+    }
+
     public function testOrphanedCredentialShowsTheNoteOnTheProfilePage(): void
     {
         $customerId = $this->createLoggedInCustomer();

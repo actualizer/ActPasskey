@@ -24,6 +24,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 /**
@@ -222,6 +223,10 @@ class PasskeyManageStoreApiController
             throw new AccessDeniedHttpException('Passkey rename failed');
         }
 
+        // Before the repository call, and independent of the id: renameOwned()
+        // refuses an over-long name too, but silently, which read as a success.
+        $this->validateName($name);
+
         // Return value intentionally ignored: "not yours" and "does not exist"
         // must be indistinguishable to the caller.
         $this->credentials->renameOwned($id, Realm::Customer, $customer->getId(), $name, $context->getContext());
@@ -281,6 +286,14 @@ class PasskeyManageStoreApiController
         $definition->add('password', new NotBlank(), new CustomerPasswordMatches(salesChannelContext: $context));
 
         $this->validator->validate(['password' => $data->get('password')], $definition);
+    }
+
+    private function validateName(string $name): void
+    {
+        $definition = new DataValidationDefinition('act_passkey.rename');
+        $definition->add('name', new Length(max: CredentialRepository::MAX_NAME_LENGTH));
+
+        $this->validator->validate(['name' => $name], $definition);
     }
 
     private function displayNameFor(CustomerEntity $customer): string

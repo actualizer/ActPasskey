@@ -357,6 +357,53 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         self::assertSame('B Key', $ownedByB->first()?->getName());
     }
 
+    public function testOverLongRenameIsRejectedAndKeepsTheName(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $credential = $this->enrollPasskey($customerId, 'Old Key');
+        $context = $this->createCustomerContext($customerId);
+
+        try {
+            $this->controller()->rename(
+                $credential,
+                new RequestDataBag(['name' => str_repeat('a', CredentialRepository::MAX_NAME_LENGTH + 1)]),
+                $context,
+                $this->customerOf($context)
+            );
+            self::fail('an over-long name must be rejected');
+        } catch (ConstraintViolationException $exception) {
+            self::assertSame(Response::HTTP_BAD_REQUEST, $exception->getStatusCode());
+        }
+
+        $owned = $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext());
+        self::assertSame('Old Key', $owned->first()?->getName());
+    }
+
+    public function testOverLongRenameIsRejectedTheSameForAnyId(): void
+    {
+        $customerA = $this->createCustomerRow();
+        $customerB = $this->createCustomerRow();
+        $credentialB = $this->enrollPasskey($customerB, 'B Key');
+
+        $context = $this->createCustomerContext($customerA);
+        $customer = $this->customerOf($context);
+        $tooLong = new RequestDataBag(['name' => str_repeat('a', CredentialRepository::MAX_NAME_LENGTH + 1)]);
+
+        // Validation runs before the ownership lookup: foreign and missing ids get the
+        // same 400, so the error is no existence oracle.
+        foreach ([$credentialB, Uuid::randomHex()] as $id) {
+            try {
+                $this->controller()->rename($id, $tooLong, $context, $customer);
+                self::fail('an over-long name must be rejected for any id');
+            } catch (ConstraintViolationException $exception) {
+                self::assertSame(Response::HTTP_BAD_REQUEST, $exception->getStatusCode());
+            }
+        }
+
+        $ownedByB = $this->credentials()->listOwned(Realm::Customer, $customerB, Context::createDefaultContext());
+        self::assertSame('B Key', $ownedByB->first()?->getName());
+    }
+
     public function testListSurfacesAnOrphanedCredential(): void
     {
         $customerId = $this->createCustomerRow();

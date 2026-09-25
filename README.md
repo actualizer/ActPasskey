@@ -102,7 +102,7 @@ For a clustered deployment, point both at shared backends:
 
 ### Credential names
 
-A passkey name is limited to 128 characters. Registering a passkey with a longer name is rejected, and a rename beyond that limit leaves the existing name unchanged.
+A passkey name is limited to 128 characters. Registering a passkey with a longer name is rejected, and so is a rename beyond that limit: the request fails with a validation error and the existing name stays unchanged.
 
 ## Logging
 

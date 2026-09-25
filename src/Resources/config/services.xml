@@ -99,6 +99,7 @@
             <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
             <argument type="service" id="Shopware\Core\Framework\RateLimiter\RateLimiter"/>
             <argument type="service" id="monolog.logger.act_passkey"/>
+            <argument type="service" id="Shopware\Core\Framework\Validation\DataValidator"/>
             <tag name="controller.service_arguments"/>
         </service>
 

@@ -11,12 +11,15 @@ use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
+use Shopware\Core\Framework\Validation\DataValidationDefinition;
+use Shopware\Core\Framework\Validation\DataValidator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Constraints\Length;
 
 /**
  * Admin passkey self-service. Every route derives ownership from the access
@@ -37,6 +40,7 @@ class PasskeyAdminManageController
         private readonly CredentialRepository $credentials,
         private readonly RateLimiter $rateLimiter,
         private readonly LoggerInterface $logger,
+        private readonly DataValidator $validator,
     ) {
     }
 
@@ -154,6 +158,10 @@ class PasskeyAdminManageController
             throw new AccessDeniedHttpException('Passkey rename failed');
         }
 
+        // Before the repository call, and independent of the id: renameOwned()
+        // refuses an over-long name too, but silently, which read as a success.
+        $this->validateName($name);
+
         // Return value intentionally ignored: "not yours" and "does not exist"
         // must be indistinguishable to the caller.
         $this->credentials->renameOwned($id, Realm::Admin, $this->userId($context), $name, $context);
@@ -189,6 +197,14 @@ class PasskeyAdminManageController
         // it decay on its configured interval instead.
 
         return new Response(null, Response::HTTP_NO_CONTENT);
+    }
+
+    private function validateName(string $name): void
+    {
+        $definition = new DataValidationDefinition('act_passkey.rename');
+        $definition->add('name', new Length(max: CredentialRepository::MAX_NAME_LENGTH));
+
+        $this->validator->validate(['name' => $name], $definition);
     }
 
     private function userId(Context $context): string

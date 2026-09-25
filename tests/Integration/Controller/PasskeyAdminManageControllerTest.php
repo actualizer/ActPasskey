@@ -162,6 +162,47 @@ final class PasskeyAdminManageControllerTest extends TestCase
         self::assertSame('B Key', $ownedByB->first()?->getName());
     }
 
+    public function testOverLongRenameIsRejectedAndKeepsTheName(): void
+    {
+        $user = $this->createAdminUser();
+        $credential = $this->enrollPasskey($user['id'], 'Old Key');
+        $token = $this->token($user, 'user-verified');
+
+        $response = $this->apiRequest(
+            'PATCH',
+            '/api/_action/act-passkey/admin/credentials/' . $credential,
+            $token,
+            ['name' => str_repeat('a', CredentialRepository::MAX_NAME_LENGTH + 1)]
+        );
+
+        self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode(), (string) $response->getContent());
+
+        $owned = $this->credentials()->listOwned(Realm::Admin, $user['id'], Context::createDefaultContext());
+        self::assertSame('Old Key', $owned->first()?->getName());
+    }
+
+    public function testRenameAtTheLimitWithMultibyteCharactersIsAccepted(): void
+    {
+        $user = $this->createAdminUser();
+        $credential = $this->enrollPasskey($user['id'], 'Old Key');
+        $token = $this->token($user, 'user-verified');
+
+        // 128 characters, 256 bytes: the limit counts characters, not bytes.
+        $name = str_repeat('ä', CredentialRepository::MAX_NAME_LENGTH);
+
+        $response = $this->apiRequest(
+            'PATCH',
+            '/api/_action/act-passkey/admin/credentials/' . $credential,
+            $token,
+            ['name' => $name]
+        );
+
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode(), (string) $response->getContent());
+
+        $owned = $this->credentials()->listOwned(Realm::Admin, $user['id'], Context::createDefaultContext());
+        self::assertSame($name, $owned->first()?->getName());
+    }
+
     /**
      * Covers all four mutating routes (register-challenge, register, rename,
      * delete) so a dropped assertUserVerified() call on any single one of them
