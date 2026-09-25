@@ -1,11 +1,11 @@
 <?php declare(strict_types=1);
 
-namespace Actualize\Passkey\Controller\Admin;
+namespace Actualize\Passkey\Controller;
 
 use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialCollection;
 
 /**
- * The one list shape every admin passkey listing returns. Deliberately without key
+ * The one list shape every passkey listing returns, admin and store-api alike. Deliberately without key
  * material: credential id, public key, sign count and user handle never leave the server.
  */
 final class CredentialListPayload

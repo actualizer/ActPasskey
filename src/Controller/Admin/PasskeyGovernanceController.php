@@ -2,17 +2,16 @@
 
 namespace Actualize\Passkey\Controller\Admin;
 
+use Actualize\Passkey\Controller\CredentialListPayload;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Psr\Log\LoggerInterface;
-use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -136,16 +135,6 @@ class PasskeyGovernanceController
      */
     private function actorId(Context $context): string
     {
-        $source = $context->getSource();
-        if (!$source instanceof AdminApiSource) {
-            throw new AccessDeniedHttpException('Passkey governance requires an admin session.');
-        }
-
-        $userId = $source->getUserId();
-        if ($userId === null || $userId === '') {
-            throw new AccessDeniedHttpException('Passkey governance requires a user session.');
-        }
-
-        return $userId;
+        return AdminActor::userId($context, 'Passkey governance');
     }
 }

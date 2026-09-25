@@ -2,6 +2,8 @@
 
 namespace Actualize\Passkey\Controller\Store;
 
+use Actualize\Passkey\Controller\CredentialListPayload;
+use Actualize\Passkey\Controller\CredentialNameValidation;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
@@ -24,7 +26,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 /**
@@ -73,19 +74,11 @@ class PasskeyManageStoreApiController
 
         $reachable = $this->rpIdResolver->reachableRpIds($context->getContext());
 
-        $credentials = [];
-        foreach ($this->credentials->listOwned(Realm::Customer, $customer->getId(), $context->getContext(), $rpId, $reachable) as $credential) {
-            $credentials[] = [
-                'id' => $credential->getId(),
-                'name' => $credential->getName(),
-                'aaguid' => $credential->getAaguid(),
-                'transports' => $credential->getTransports(),
-                'createdAt' => $credential->getCreatedAt()?->format(\DATE_ATOM),
-                'lastUsedAt' => $credential->getLastUsedAt()?->format(\DATE_ATOM),
-            ];
-        }
-
-        return new JsonResponse(['credentials' => $credentials]);
+        return new JsonResponse([
+            'credentials' => CredentialListPayload::fromCollection(
+                $this->credentials->listOwned(Realm::Customer, $customer->getId(), $context->getContext(), $rpId, $reachable)
+            ),
+        ]);
     }
 
     #[Route(
@@ -290,10 +283,7 @@ class PasskeyManageStoreApiController
 
     private function validateName(string $name): void
     {
-        $definition = new DataValidationDefinition('act_passkey.rename');
-        $definition->add('name', new Length(max: CredentialRepository::MAX_NAME_LENGTH));
-
-        $this->validator->validate(['name' => $name], $definition);
+        $this->validator->validate(['name' => $name], CredentialNameValidation::definition());
     }
 
     private function displayNameFor(CustomerEntity $customer): string

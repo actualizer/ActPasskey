@@ -295,6 +295,11 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         self::assertIsArray($data);
         self::assertIsArray($data['credentials'] ?? null);
         self::assertCount(1, $data['credentials']);
+        // Exactly these keys, in this order — never key material.
+        self::assertSame(
+            ['id', 'name', 'aaguid', 'transports', 'createdAt', 'lastUsedAt'],
+            array_keys($data['credentials'][0])
+        );
         self::assertSame($credentialA, $data['credentials'][0]['id']);
         self::assertSame('A Key', $data['credentials'][0]['name']);
         // Never used yet — the account page renders this as "never".

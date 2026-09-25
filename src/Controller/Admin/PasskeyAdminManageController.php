@@ -2,16 +2,16 @@
 
 namespace Actualize\Passkey\Controller\Admin;
 
+use Actualize\Passkey\Controller\CredentialListPayload;
+use Actualize\Passkey\Controller\CredentialNameValidation;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
 use Psr\Log\LoggerInterface;
-use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
-use Shopware\Core\Framework\Validation\DataValidationDefinition;
 use Shopware\Core\Framework\Validation\DataValidator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,7 +19,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Validator\Constraints\Length;
 
 /**
  * Admin passkey self-service. Every route derives ownership from the access
@@ -201,26 +200,12 @@ class PasskeyAdminManageController
 
     private function validateName(string $name): void
     {
-        $definition = new DataValidationDefinition('act_passkey.rename');
-        $definition->add('name', new Length(max: CredentialRepository::MAX_NAME_LENGTH));
-
-        $this->validator->validate(['name' => $name], $definition);
+        $this->validator->validate(['name' => $name], CredentialNameValidation::definition());
     }
 
     private function userId(Context $context): string
     {
-        $source = $context->getSource();
-        if (!$source instanceof AdminApiSource) {
-            throw new AccessDeniedHttpException('Passkey self-service requires an admin session.');
-        }
-
-        $userId = $source->getUserId();
-        if ($userId === null || $userId === '') {
-            // Integration (app/system) tokens have no user — they own no passkeys.
-            throw new AccessDeniedHttpException('Passkey self-service requires a user session.');
-        }
-
-        return $userId;
+        return AdminActor::userId($context, 'Passkey self-service');
     }
 
     private function displayName(Request $request): string
