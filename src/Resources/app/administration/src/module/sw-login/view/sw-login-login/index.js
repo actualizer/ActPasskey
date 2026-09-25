@@ -12,6 +12,7 @@ Component.override('sw-login-login', {
     data() {
         return {
             passkeyError: false,
+            isWebAuthnSupported: !!window.PublicKeyCredential,
         };
     },
 

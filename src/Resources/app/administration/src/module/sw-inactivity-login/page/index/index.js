@@ -7,6 +7,12 @@ const { Component } = Shopware;
 Component.override('sw-inactivity-login', {
     template,
 
+    data() {
+        return {
+            isWebAuthnSupported: !!window.PublicKeyCredential,
+        };
+    },
+
     methods: {
         async onPasskeyLogin() {
             this.isLoading = true;

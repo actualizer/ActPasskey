@@ -27,6 +27,7 @@
            not loaded on this screen. #}
         {% block act_passkey_inactivity_login_submit %}
             <mt-button
+                v-if="isWebAuthnSupported"
                 class="act-passkey-inactivity-login__button"
                 style="margin-top: var(--scale-size-32);"
                 variant="secondary"

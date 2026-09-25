@@ -5,6 +5,7 @@
 
     {% block act_passkey_login_submit %}
         <mt-button
+            v-if="isWebAuthnSupported"
             class="act-passkey-login__button"
             variant="secondary"
             size="default"
