@@ -60,6 +60,8 @@ From then on, the admin login page offers a passkey sign-in button.
 
 The storefront login page then offers passkey sign-in.
 
+A login challenge is bound to the sales-channel context that requested it. Headless clients using the store-api routes must therefore send the same `sw-context-token` header to `/store-api/act-passkey/challenge` and `/store-api/act-passkey/login`; if the first call has none, reuse the token returned in its response header.
+
 If the register button does not appear, the page is not running on a covered HTTPS domain or the browser lacks WebAuthn support (see [Domain coverage](#domain-coverage)).
 
 ### Revoking passkeys of other accounts

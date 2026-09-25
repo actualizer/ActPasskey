@@ -49,7 +49,12 @@ class PasskeyStoreApiController
         }
 
         try {
-            $result = $this->authenticationCeremony->createOptions(Realm::Customer, $request->getHost(), $context->getContext());
+            $result = $this->authenticationCeremony->createOptions(
+                Realm::Customer,
+                $request->getHost(),
+                $context->getContext(),
+                $context->getToken()
+            );
         } catch (UnsupportedHostException) {
             return new JsonResponse(['error' => 'unsupported_host'], Response::HTTP_BAD_REQUEST);
         }

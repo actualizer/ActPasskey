@@ -22,11 +22,16 @@ final class ChallengeStore {
         private readonly LockFactory $lockFactory,
     ) {}
 
+    /**
+     * `$binding` ties the challenge to the context it was handed out to (the
+     * customer's sales-channel context token). Only its hash is stored.
+     */
     public function issue(
         string $rawChallenge,
         ChallengePurpose $purpose,
         Realm $realm,
-        int $ttlSeconds = 120
+        int $ttlSeconds = 120,
+        ?string $binding = null
     ): string {
         $id = Uuid::randomHex();
         $item = $this->cache->getItem(self::KEY_PREFIX . $id);
@@ -34,6 +39,7 @@ final class ChallengeStore {
             'challenge' => base64_encode($rawChallenge),
             'purpose' => $purpose->value,
             'realm' => $realm->value,
+            'binding' => $binding === null ? null : hash('sha256', $binding),
             'expires' => $this->clock->now()->getTimestamp() + $ttlSeconds,
         ]);
         $item->expiresAfter($ttlSeconds + 5); // backstop; primary check below
@@ -41,7 +47,7 @@ final class ChallengeStore {
         return $id;
     }
 
-    public function consume(string $challengeId, ChallengePurpose $purpose, Realm $realm): ?string {
+    public function consume(string $challengeId, ChallengePurpose $purpose, Realm $realm, ?string $binding = null): ?string {
         $key = self::KEY_PREFIX . $challengeId;
 
         // getItem-then-deleteItem is not atomic on a PSR-6 pool: two near-simultaneous
@@ -68,6 +74,18 @@ final class ChallengeStore {
             // A challenge is only valid for the ceremony and realm it was issued for:
             // one handed out at a customer endpoint must not redeem an admin login.
             if (($data['purpose'] ?? null) !== $purpose->value || ($data['realm'] ?? null) !== $realm->value) {
+                return null;
+            }
+            // A bound challenge is only redeemable in the context it was issued to,
+            // and an unbound one only without a context. Without this, a challenge
+            // fetched by an attacker for their own account could be redeemed by a
+            // victim's browser via a cross-site POST, logging the victim into the
+            // attacker's account.
+            $stored = $data['binding'] ?? null;
+            $matches = $binding === null
+                ? $stored === null
+                : is_string($stored) && hash_equals($stored, hash('sha256', $binding));
+            if (!$matches) {
                 return null;
             }
             $encoded = $data['challenge'] ?? null;

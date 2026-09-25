@@ -82,4 +82,35 @@ final class ChallengeStoreTest extends TestCase {
             'a mismatched attempt must not leave the challenge replayable'
         );
     }
+    public function testBoundChallengeRedeemsInItsOwnContext(): void {
+        $store = $this->makeStore(new MockClock());
+        $raw = random_bytes(32);
+        $id = $store->issue($raw, ChallengePurpose::Authentication, Realm::Customer, binding: 'token-a');
+        self::assertSame($raw, $store->consume($id, ChallengePurpose::Authentication, Realm::Customer, 'token-a'));
+    }
+    public function testBoundChallengeIsRejectedInAnotherContextAndBurned(): void {
+        $store = $this->makeStore(new MockClock());
+        $id = $store->issue(random_bytes(32), ChallengePurpose::Authentication, Realm::Customer, binding: 'token-a');
+        self::assertNull($store->consume($id, ChallengePurpose::Authentication, Realm::Customer, 'token-b'));
+        self::assertNull(
+            $store->consume($id, ChallengePurpose::Authentication, Realm::Customer, 'token-a'),
+            'a mismatched attempt must not leave the challenge replayable'
+        );
+    }
+    public function testBoundChallengeIsRejectedWithoutAContext(): void {
+        $store = $this->makeStore(new MockClock());
+        $id = $store->issue(random_bytes(32), ChallengePurpose::Authentication, Realm::Customer, binding: 'token-a');
+        self::assertNull($store->consume($id, ChallengePurpose::Authentication, Realm::Customer));
+    }
+    public function testUnboundChallengeIsRejectedInAContext(): void {
+        $store = $this->makeStore(new MockClock());
+        $id = $store->issue(random_bytes(32), ChallengePurpose::Authentication, Realm::Customer);
+        self::assertNull($store->consume($id, ChallengePurpose::Authentication, Realm::Customer, 'token-a'));
+    }
+    public function testTheBindingIsStoredOnlyAsAHash(): void {
+        $cache = new ArrayAdapter(0, false);
+        $store = new ChallengeStore($cache, new MockClock(), new LockFactory(new InMemoryStore()));
+        $store->issue(random_bytes(32), ChallengePurpose::Authentication, Realm::Customer, binding: 'token-a');
+        self::assertStringNotContainsString('token-a', serialize($cache->getValues()));
+    }
 }

@@ -40,12 +40,21 @@ final class AuthenticationCeremony
     }
 
     /**
+     * `$binding` (the customer's sales-channel context token) ties the challenge to
+     * the context that requested it; verify() must then be called with the same
+     * value. The admin realm passes none: its token endpoint is stateless.
+     *
      * @return array{options: string, challengeId: string}
      */
-    public function createOptions(Realm $realm, string $host, Context $context): array
+    public function createOptions(Realm $realm, string $host, Context $context, ?string $binding = null): array
     {
         $challenge = random_bytes(32);
-        $challengeId = $this->challengeStore->issue($challenge, ChallengePurpose::Authentication, $realm);
+        $challengeId = $this->challengeStore->issue(
+            $challenge,
+            ChallengePurpose::Authentication,
+            $realm,
+            binding: $binding
+        );
         $options = $this->buildOptions($realm, $host, $challenge, $context);
 
         return [
@@ -62,9 +71,10 @@ final class AuthenticationCeremony
         string $rawResponseJson,
         string $challengeId,
         string $host,
-        Context $context
+        Context $context,
+        ?string $binding = null
     ): string {
-        $challenge = $this->challengeStore->consume($challengeId, ChallengePurpose::Authentication, $realm);
+        $challenge = $this->challengeStore->consume($challengeId, ChallengePurpose::Authentication, $realm, $binding);
         if ($challenge === null) {
             throw new RuntimeException('Invalid or expired authentication challenge.');
         }

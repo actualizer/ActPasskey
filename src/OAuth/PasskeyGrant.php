@@ -96,7 +96,8 @@ class PasskeyGrant extends AbstractGrant
 
         try {
             // Grant runs pre-controller with no request-scoped context; CLI context is the
-            // store-compliant system context here.
+            // store-compliant system context here. No challenge binding: the admin token
+            // endpoint is stateless, so there is no session context to bind to.
             $userId = $this->authenticationCeremony->verify(
                 Realm::Admin,
                 $responseJson,

@@ -94,7 +94,7 @@ final class PasskeyStorefrontControllerTest extends TestCase
         $customerId = $this->createCustomer();
         $this->registerPasskey($customerId, $ctx);
 
-        [$assertion, $challengeId] = $this->buildAssertion($ctx);
+        [$assertion, $challengeId] = $this->buildAssertion();
 
         $loginResponse = $this->request('POST', 'account/login/passkey', [
             'passkey_response' => $assertion,
@@ -125,7 +125,7 @@ final class PasskeyStorefrontControllerTest extends TestCase
         $customerId = $this->createCustomer();
         $this->registerPasskey($customerId, $ctx);
 
-        [$assertion, $challengeId] = $this->buildAssertion($ctx);
+        [$assertion, $challengeId] = $this->buildAssertion();
 
         $loginResponse = $this->request('POST', 'account/login/passkey', [
             'passkey_response' => $assertion,
@@ -143,7 +143,7 @@ final class PasskeyStorefrontControllerTest extends TestCase
         $customerId = $this->createCustomer();
         $this->registerPasskey($customerId, $ctx);
 
-        [$assertion, ] = $this->buildAssertion($ctx);
+        [$assertion, ] = $this->buildAssertion();
 
         $loginResponse = $this->request('POST', 'account/login/passkey', [
             'passkey_response' => $assertion,
@@ -161,16 +161,52 @@ final class PasskeyStorefrontControllerTest extends TestCase
         self::assertStringContainsString('/account/login', (string) $accountResponse->headers->get('Location'));
     }
 
-    /**
-     * @return array{0: string, 1: string} assertion JSON + challengeId
-     */
-    private function buildAssertion(Context $ctx): array
+    public function testChallengeIssuedToAnotherContextDoesNotLogIn(): void
     {
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer();
+        $this->registerPasskey($customerId, $ctx);
+
+        // A cross-site POST: the challenge was fetched in another context (the
+        // attacker's), the victim's browser session has its own token.
         $auth = $this->getContainer()->get(AuthenticationCeremony::class);
-        $req = $auth->createOptions(Realm::Customer, $this->host, $ctx);
+        $req = $auth->createOptions(Realm::Customer, $this->host, $ctx, Uuid::randomHex());
         $assertion = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
 
-        return [$assertion, $req['challengeId']];
+        $loginResponse = $this->request('POST', 'account/login/passkey', [
+            'passkey_response' => $assertion,
+            'passkey_challenge_id' => $req['challengeId'],
+        ]);
+
+        self::assertNotSame(302, $loginResponse->getStatusCode());
+
+        $accountResponse = $this->request('GET', 'account', []);
+        self::assertSame(302, $accountResponse->getStatusCode());
+        self::assertStringContainsString('/account/login', (string) $accountResponse->headers->get('Location'));
+    }
+
+    /**
+     * Through the real challenge route, in the same browser session as the login
+     * POST: the challenge is bound to that session's context token.
+     *
+     * @return array{0: string, 1: string} assertion JSON + challengeId
+     */
+    private function buildAssertion(): array
+    {
+        $response = $this->request('POST', 'account/login/passkey/challenge', []);
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertIsArray($data['options'] ?? null);
+        self::assertIsString($data['challengeId'] ?? null);
+
+        $assertion = SoftwareAuthenticator::respondToGet(
+            json_encode($data['options'], JSON_THROW_ON_ERROR),
+            $this->origin
+        );
+
+        return [$assertion, $data['challengeId']];
     }
 
     private function registerPasskey(string $customerId, Context $ctx): void

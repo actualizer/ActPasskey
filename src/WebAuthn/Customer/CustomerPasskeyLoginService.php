@@ -34,12 +34,16 @@ final class CustomerPasskeyLoginService
     public function login(string $rawResponseJson, string $challengeId, string $host, SalesChannelContext $context): string
     {
         try {
+            // Bound to the context token that fetched the challenge: a cross-site
+            // POST arrives without the Lax session cookie, gets a fresh context and
+            // is rejected, so nobody can be logged into someone else's account.
             $customerId = $this->authenticationCeremony->verify(
                 Realm::Customer,
                 $rawResponseJson,
                 $challengeId,
                 $host,
-                $context->getContext()
+                $context->getContext(),
+                $context->getToken()
             );
         } catch (\Throwable $exception) {
             // Catch broadly, incl. Webauthn CounterException (does not extend the

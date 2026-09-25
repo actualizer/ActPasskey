@@ -23,6 +23,7 @@ use Shopware\Core\System\SalesChannel\ContextTokenResponse;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\Test\TestDefaults;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
@@ -65,7 +66,7 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
         $this->registerPasskey(Realm::Customer, $customerId, $ctx);
 
         $salesChannelContext = $this->createStorefrontContext();
-        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx);
+        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx, $salesChannelContext);
         $request = $this->buildHostRequest();
 
         $response = $controller->login($request, $requestDataBag, $salesChannelContext);
@@ -85,7 +86,7 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
         $this->registerPasskey(Realm::Admin, $adminUserId, $ctx);
 
         $salesChannelContext = $this->createStorefrontContext();
-        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Admin, $ctx);
+        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Admin, $ctx, $salesChannelContext);
         $request = $this->buildHostRequest();
 
         $this->expectException(UnauthorizedHttpException::class);
@@ -104,7 +105,7 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
         $this->registerPasskey(Realm::Customer, $customerId, $ctx);
 
         $salesChannelContext = $this->createStorefrontContext();
-        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx);
+        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx, $salesChannelContext);
         $request = $this->buildHostRequest();
 
         // On the store-api route, the eligibility guard's CustomerException
@@ -123,7 +124,7 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
         $this->registerPasskey(Realm::Customer, $customerId, $ctx);
 
         $salesChannelContext = $this->createStorefrontContext();
-        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx);
+        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx, $salesChannelContext);
         $request = $this->buildHostRequest();
 
         $this->expectException(CustomerException::class);
@@ -154,6 +155,38 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
 
         $this->expectException(UnauthorizedHttpException::class);
         $controller->login($request, $requestDataBag, $salesChannelContext);
+    }
+
+    public function testChallengeFromAnotherContextIsRejected(): void
+    {
+        $controller = $this->getContainer()->get(PasskeyStoreApiController::class);
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer();
+        $this->registerPasskey(Realm::Customer, $customerId, $ctx);
+
+        // A cross-site POST: the challenge belongs to the context that fetched it,
+        // the redeeming request carries a different one.
+        $challengeResponse = $controller->challenge($this->buildHostRequest(), $this->createStorefrontContext());
+        $requestDataBag = $this->loginDataFromChallengeResponse($challengeResponse);
+
+        $this->expectException(UnauthorizedHttpException::class);
+        $controller->login($this->buildHostRequest(), $requestDataBag, $this->createStorefrontContext());
+    }
+
+    public function testChallengeRouteBindsToTheCallersContext(): void
+    {
+        $controller = $this->getContainer()->get(PasskeyStoreApiController::class);
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer();
+        $this->registerPasskey(Realm::Customer, $customerId, $ctx);
+
+        $salesChannelContext = $this->createStorefrontContext();
+        $challengeResponse = $controller->challenge($this->buildHostRequest(), $salesChannelContext);
+        $requestDataBag = $this->loginDataFromChallengeResponse($challengeResponse);
+
+        $response = $controller->login($this->buildHostRequest(), $requestDataBag, $salesChannelContext);
+
+        self::assertInstanceOf(ContextTokenResponse::class, $response);
     }
 
     public function testFailedLoginIsRecordedOnThePasskeyChannel(): void
@@ -201,15 +234,32 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
         $reg->verify($realm, $accountId, $attJson, $create['challengeId'], $this->host, 'Test Key', $ctx);
     }
 
-    private function buildLoginRequestDataBag(Realm $realm, Context $ctx): RequestDataBag
+    private function buildLoginRequestDataBag(Realm $realm, Context $ctx, SalesChannelContext $salesChannelContext): RequestDataBag
     {
         $auth = $this->getContainer()->get(AuthenticationCeremony::class);
-        $req = $auth->createOptions($realm, $this->host, $ctx);
+        $req = $auth->createOptions($realm, $this->host, $ctx, $salesChannelContext->getToken());
         $assertion = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
 
         return new RequestDataBag([
             'passkey_response' => $assertion,
             'passkey_challenge_id' => $req['challengeId'],
+        ]);
+    }
+
+    private function loginDataFromChallengeResponse(JsonResponse $challengeResponse): RequestDataBag
+    {
+        self::assertSame(200, $challengeResponse->getStatusCode(), (string) $challengeResponse->getContent());
+        $data = json_decode((string) $challengeResponse->getContent(), true);
+        self::assertIsArray($data);
+        self::assertIsArray($data['options'] ?? null);
+        self::assertIsString($data['challengeId'] ?? null);
+
+        return new RequestDataBag([
+            'passkey_response' => SoftwareAuthenticator::respondToGet(
+                json_encode($data['options'], JSON_THROW_ON_ERROR),
+                $this->origin
+            ),
+            'passkey_challenge_id' => $data['challengeId'],
         ]);
     }
 

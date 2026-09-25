@@ -5,7 +5,6 @@ namespace Actualize\Passkey\Tests\Integration\Storefront;
 use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialEntity;
 use Actualize\Passkey\Subscriber\Storefront\AccountProfilePasskeysSubscriber;
 use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
-use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
@@ -285,14 +284,19 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
         $attestation = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin);
         $registration->verify(Realm::Customer, $customerId, $attestation, $create['challengeId'], $this->host, 'Login Key', $ctx);
 
-        $authentication = $this->getContainer()->get(AuthenticationCeremony::class);
-        self::assertInstanceOf(AuthenticationCeremony::class, $authentication);
-        $request = $authentication->createOptions(Realm::Customer, $this->host, $ctx);
-        $assertion = SoftwareAuthenticator::respondToGet($request['options'], $this->origin);
+        // Through the real challenge route: the challenge is bound to this browser
+        // session's context token, which the login POST then carries.
+        $challenge = $this->request('POST', 'account/login/passkey/challenge', []);
+        self::assertSame(200, $challenge->getStatusCode(), (string) $challenge->getContent());
+        $data = json_decode((string) $challenge->getContent(), true);
+        self::assertIsArray($data);
+        self::assertIsArray($data['options'] ?? null);
+        self::assertIsString($data['challengeId'] ?? null);
+        $assertion = SoftwareAuthenticator::respondToGet(json_encode($data['options'], JSON_THROW_ON_ERROR), $this->origin);
 
         $loginResponse = $this->request('POST', 'account/login/passkey', [
             'passkey_response' => $assertion,
-            'passkey_challenge_id' => $request['challengeId'],
+            'passkey_challenge_id' => $data['challengeId'],
         ]);
         self::assertSame(302, $loginResponse->getStatusCode(), (string) $loginResponse->getContent());
 
