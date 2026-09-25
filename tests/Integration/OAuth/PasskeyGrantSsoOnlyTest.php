@@ -69,7 +69,19 @@ final class PasskeyGrantSsoOnlyTest extends TestCase
         }
     }
 
-    private function respondWithPolicy(AdminLoginPolicy $policy): ResponseInterface
+    public function testAFailedLastUsedStampDoesNotFailAnAcceptedLogin(): void
+    {
+        // Same harness, only the stamp's write fails: every refusal has already passed,
+        // so the token must still be issued rather than a 500.
+        $failingRepository = $this->createMock(EntityRepository::class);
+        $failingRepository->method('update')->willThrowException(new \RuntimeException('database unavailable'));
+
+        $response = $this->respondWithPolicy(new AdminLoginPolicy([]), new CredentialRepository($failingRepository));
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    private function respondWithPolicy(AdminLoginPolicy $policy, ?CredentialRepository $credentials = null): ResponseInterface
     {
         $ctx = Context::createDefaultContext();
         $adminUserId = $this->createAdminUser();
@@ -96,7 +108,7 @@ final class PasskeyGrantSsoOnlyTest extends TestCase
             new NullLogger(),
             $policy,
             $this->getContainer()->get(Connection::class),
-            $this->getContainer()->get(CredentialRepository::class),
+            $credentials ?? $this->getContainer()->get(CredentialRepository::class),
         );
         // Normally set by PasskeyGrantSubscriber, which this test deliberately bypasses.
         $grant->setRefreshTokenTTL(new \DateInterval('P1W'));

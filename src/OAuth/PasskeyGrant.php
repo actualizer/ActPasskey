@@ -144,8 +144,13 @@ class PasskeyGrant extends AbstractGrant
         }
 
         // Stamped only now, after every refusal above: a rejected login must not look
-        // like a recent use.
-        $this->credentials->markUsed($result->credentialEntityId, Context::createCLIContext(), new \DateTimeImmutable());
+        // like a recent use. The stamp is cosmetic, so a failing write must not turn
+        // the accepted login into an error.
+        try {
+            $this->credentials->markUsed($result->credentialEntityId, Context::createCLIContext(), new \DateTimeImmutable());
+        } catch (\Throwable $exception) {
+            $this->logger->warning('Passkey last-used stamp failed', ['exception' => $exception]);
+        }
 
         return $userId;
     }

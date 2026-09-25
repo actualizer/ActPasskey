@@ -236,6 +236,50 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
         self::assertInstanceOf(ContextTokenResponse::class, $response);
     }
 
+    public function testAFailedLastUsedStampDoesNotFailAnAcceptedLogin(): void
+    {
+        $spy = new class extends AbstractLogger {
+            /** @var list<array{level: mixed, message: string}> */
+            public array $records = [];
+
+            public function log($level, $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message];
+            }
+        };
+
+        // The stamp runs after loginById(): the session already exists, so a failing
+        // write (database hiccup, credential revoked a moment ago) must not report
+        // the accepted login as failed.
+        $failingRepository = $this->createMock(EntityRepository::class);
+        $failingRepository->method('update')->willThrowException(new \RuntimeException('database unavailable'));
+
+        $service = new CustomerPasskeyLoginService(
+            $this->getContainer()->get(AuthenticationCeremony::class),
+            $this->getContainer()->get(CustomerEligibilityGuard::class),
+            $this->getContainer()->get(AccountService::class),
+            $this->getContainer()->get('customer.repository'),
+            $spy,
+            new CredentialRepository($failingRepository),
+        );
+
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer();
+        $this->registerPasskey(Realm::Customer, $customerId, $ctx);
+        $salesChannelContext = $this->createStorefrontContext();
+        $data = $this->buildLoginRequestDataBag(Realm::Customer, $ctx, $salesChannelContext);
+
+        $token = $service->login(
+            (string) $data->get('passkey_response'),
+            (string) $data->get('passkey_challenge_id'),
+            $this->host,
+            $salesChannelContext
+        );
+
+        self::assertNotSame('', $token);
+        self::assertSame([['level' => LogLevel::WARNING, 'message' => 'Passkey last-used stamp failed']], $spy->records);
+    }
+
     public function testFailedLoginIsRecordedOnThePasskeyChannel(): void
     {
         $spy = new class extends AbstractLogger {

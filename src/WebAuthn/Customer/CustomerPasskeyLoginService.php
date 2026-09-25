@@ -71,8 +71,13 @@ final class CustomerPasskeyLoginService
         $token = $this->accountService->loginById($result->accountId, $context);
 
         // Stamped only once the session exists: a refused login must not look like a
-        // recent use.
-        $this->credentials->markUsed($result->credentialEntityId, $context->getContext(), new \DateTimeImmutable());
+        // recent use. The stamp is cosmetic, so a failing write must not turn the
+        // accepted login into an error.
+        try {
+            $this->credentials->markUsed($result->credentialEntityId, $context->getContext(), new \DateTimeImmutable());
+        } catch (\Throwable $exception) {
+            $this->logger->warning('Passkey last-used stamp failed', ['exception' => $exception]);
+        }
 
         return $token;
     }
