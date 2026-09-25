@@ -153,7 +153,10 @@ class PasskeyAdminManageController
     {
         UserVerifiedScopeGuard::assert($request);
         $name = $request->request->get('name');
-        if (!is_string($name) || $name === '') {
+        // Surrounding whitespace is never part of a name, and a name of nothing but
+        // whitespace is no name at all.
+        $name = is_string($name) ? mb_trim($name) : null;
+        if ($name === null || $name === '') {
             throw new AccessDeniedHttpException('Passkey rename failed');
         }
 

@@ -162,6 +162,40 @@ final class PasskeyAdminManageControllerTest extends TestCase
         self::assertSame('B Key', $ownedByB->first()?->getName());
     }
 
+    public function testWhitespaceOnlyRenameIsRejectedAndKeepsTheName(): void
+    {
+        $user = $this->createAdminUser();
+        $credential = $this->enrollPasskey($user['id'], 'Old Key');
+
+        $response = $this->apiRequest(
+            'PATCH',
+            '/api/_action/act-passkey/admin/credentials/' . $credential,
+            $this->token($user, 'user-verified'),
+            ['name' => " \u{00A0}\t "]
+        );
+
+        self::assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode(), (string) $response->getContent());
+        $owned = $this->credentials()->listOwned(Realm::Admin, $user['id'], Context::createDefaultContext());
+        self::assertSame('Old Key', $owned->first()?->getName());
+    }
+
+    public function testRenameTrimsSurroundingWhitespace(): void
+    {
+        $user = $this->createAdminUser();
+        $credential = $this->enrollPasskey($user['id'], 'Old Key');
+
+        $response = $this->apiRequest(
+            'PATCH',
+            '/api/_action/act-passkey/admin/credentials/' . $credential,
+            $this->token($user, 'user-verified'),
+            ['name' => "  New Key\u{00A0} "]
+        );
+
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode(), (string) $response->getContent());
+        $owned = $this->credentials()->listOwned(Realm::Admin, $user['id'], Context::createDefaultContext());
+        self::assertSame('New Key', $owned->first()?->getName());
+    }
+
     public function testOverLongRenameIsRejectedAndKeepsTheName(): void
     {
         $user = $this->createAdminUser();

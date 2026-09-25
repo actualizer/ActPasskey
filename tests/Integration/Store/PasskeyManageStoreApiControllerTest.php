@@ -28,6 +28,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\Test\TestDefaults;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Proves the customer self-service store-api: enrollment is only possible for an
@@ -360,6 +361,35 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
 
         $ownedByB = $this->credentials()->listOwned(Realm::Customer, $customerB, Context::createDefaultContext());
         self::assertSame('B Key', $ownedByB->first()?->getName());
+    }
+
+    public function testWhitespaceOnlyRenameIsRejectedAndKeepsTheName(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $credential = $this->enrollPasskey($customerId, 'Old Key');
+        $context = $this->createCustomerContext($customerId);
+
+        try {
+            $this->controller()->rename($credential, new RequestDataBag(['name' => " \u{00A0}\t "]), $context, $this->customerOf($context));
+            self::fail('a name of only whitespace must be rejected');
+        } catch (AccessDeniedHttpException) {
+            // expected — same refusal as an empty name
+        }
+
+        $owned = $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext());
+        self::assertSame('Old Key', $owned->first()?->getName());
+    }
+
+    public function testRenameTrimsSurroundingWhitespace(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $credential = $this->enrollPasskey($customerId, 'Old Key');
+        $context = $this->createCustomerContext($customerId);
+
+        $this->controller()->rename($credential, new RequestDataBag(['name' => "  New Key\u{00A0} "]), $context, $this->customerOf($context));
+
+        $owned = $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext());
+        self::assertSame('New Key', $owned->first()?->getName());
     }
 
     public function testOverLongRenameIsRejectedAndKeepsTheName(): void
