@@ -3,6 +3,7 @@
 namespace Actualize\Passkey\Controller\Storefront;
 
 use Actualize\Passkey\Controller\Store\PasskeyManageStoreApiController;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
@@ -87,6 +88,12 @@ class PasskeyManageStorefrontController extends StorefrontController
         try {
             $this->manageStoreApi->rename($id, $data, $context, $customer);
             $this->addFlash(self::SUCCESS, $this->trans('act-passkey.manage.renameSuccess'));
+        } catch (ConstraintViolationException) {
+            // The only validation on rename is the name length.
+            $this->addFlash(self::DANGER, $this->trans(
+                'act-passkey.manage.nameTooLong',
+                ['%max%' => CredentialRepository::MAX_NAME_LENGTH]
+            ));
         } catch (\Throwable $exception) {
             // Delegates to the store-api controller, whose rename has no logging
             // catch of its own, so this wrapper records the swallowed failure.

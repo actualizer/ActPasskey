@@ -33,6 +33,7 @@
             "registerSuccess": "Passkey registriert.",
             "deleteSuccess": "Passkey entfernt.",
             "error": "Die Anfrage konnte nicht abgeschlossen werden.",
+            "nameTooLong": "Der Passkey-Name darf nicht länger als {max} Zeichen sein.",
             "columnName": "Name",
             "columnCreatedAt": "Erstellt am",
             "columnLastUsedAt": "Zuletzt verwendet",

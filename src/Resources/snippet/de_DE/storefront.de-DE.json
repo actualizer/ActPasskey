@@ -23,6 +23,7 @@
             "renameSuccess": "Passkey umbenannt.",
             "deleteSuccess": "Passkey entfernt.",
             "error": "Die Anfrage konnte nicht abgeschlossen werden.",
+            "nameTooLong": "Der Passkey-Name darf nicht länger als %max% Zeichen sein.",
             "lastUsed": "Zuletzt verwendet: %date%",
             "neverUsed": "Nie verwendet",
             "orphaned": "Gehört zu einer nicht mehr aktiven Domain."

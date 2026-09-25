@@ -237,9 +237,13 @@ Component.override('sw-profile-index-general', {
             try {
                 await this.passkeyApiService.rename(id, name, context);
                 await this.loadPasskeys();
-            } catch {
+            } catch (error) {
+                // The only validation on rename is the name length.
+                const tooLong = error?.response?.status === 400;
                 this.createNotificationError({
-                    message: this.$t('act-passkey.manage.error'),
+                    message: tooLong
+                        ? this.$t('act-passkey.manage.nameTooLong', { max: 128 })
+                        : this.$t('act-passkey.manage.error'),
                 });
                 this.isPasskeyLoading = false;
             }

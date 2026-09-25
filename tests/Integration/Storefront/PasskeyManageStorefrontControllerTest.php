@@ -134,7 +134,7 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
 
         // The test storefront domain resolves the en_GB storefront snippet set.
         $profile = (string) $this->request('GET', 'account/profile', [])->getContent();
-        self::assertStringContainsString('could not be completed', $profile);
+        self::assertStringContainsString('The passkey name must not be longer than 128 characters.', $profile);
         self::assertStringNotContainsString('Passkey renamed.', $profile);
     }
 
