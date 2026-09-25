@@ -32,7 +32,12 @@ final class SoftwareAuthenticator
     /**
      * @return string JSON of the browser PublicKeyCredential (attestation)
      */
-    public static function respondToCreate(string $optionsJson, string $origin, int $credentialIdLength = 32): string
+    public static function respondToCreate(
+        string $optionsJson,
+        string $origin,
+        int $credentialIdLength = 32,
+        string $attestationFormat = 'none'
+    ): string
     {
         /** @var array{challenge: string, rp: array{id: string}, user: array{id: string}} $options */
         $options = json_decode($optionsJson, true, 512, JSON_THROW_ON_ERROR);
@@ -64,12 +69,12 @@ final class SoftwareAuthenticator
             . pack('N', 0)
             . self::attestedCredentialData($credentialId, $cosePublicKey);
 
-        $attestationObject = MapObject::create()
-            ->add(TextStringObject::create('fmt'), TextStringObject::create('none'))
-            ->add(TextStringObject::create('attStmt'), MapObject::create())
-            ->add(TextStringObject::create('authData'), ByteStringObject::create($authData));
-
         $clientDataJson = self::clientDataJson('webauthn.create', $challenge, $origin);
+
+        $attestationObject = MapObject::create()
+            ->add(TextStringObject::create('fmt'), TextStringObject::create($attestationFormat === 'none' ? 'none' : 'packed'))
+            ->add(TextStringObject::create('attStmt'), self::attestationStatement($attestationFormat, $authData, $clientDataJson, $keyPair))
+            ->add(TextStringObject::create('authData'), ByteStringObject::create($authData));
 
         self::$lastCredentialId = self::b64uEncode($credentialId);
         self::$registry[self::$lastCredentialId] = [
@@ -152,6 +157,35 @@ final class SoftwareAuthenticator
     {
         self::$registry = [];
         self::$lastCredentialId = '';
+    }
+
+    /**
+     * `packed` is a self-attestation: signed with the credential's own key over
+     * `authData || sha256(clientDataJSON)`, without a certificate. `packed-invalid`
+     * signs different bytes, so a verifier that really checks the signature refuses it.
+     */
+    private static function attestationStatement(
+        string $format,
+        string $authData,
+        string $clientDataJson,
+        OpenSSLAsymmetricKey $key
+    ): MapObject {
+        if ($format === 'none') {
+            return MapObject::create();
+        }
+        if ($format !== 'packed' && $format !== 'packed-invalid') {
+            throw new RuntimeException(sprintf('Unsupported attestation format "%s".', $format));
+        }
+
+        $signedData = $authData . hash('sha256', $clientDataJson, true);
+        if ($format === 'packed-invalid') {
+            $signedData .= "\0";
+        }
+        openssl_sign($signedData, $signature, $key, OPENSSL_ALGO_SHA256);
+
+        return MapObject::create()
+            ->add(TextStringObject::create('alg'), NegativeIntegerObject::create(-7)) // ES256
+            ->add(TextStringObject::create('sig'), ByteStringObject::create((string) $signature));
     }
 
     private static function attestedCredentialData(string $credentialId, string $cosePublicKey): string

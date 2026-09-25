@@ -3,23 +3,21 @@
 namespace Actualize\Passkey\WebAuthn\Ceremony;
 
 use Symfony\Component\Serializer\SerializerInterface;
-use Webauthn\AttestationStatement\AttestationStatementSupportManager;
-use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\Denormalizer\WebauthnSerializerFactory;
 use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialRequestOptions;
 
 /**
- * Only `none` attestation is registered, matching this plugin's passkey setup.
+ * Accepted attestation formats come from AttestationSupport.
  */
 final class WebauthnSerializer
 {
     /**
      * Hard ceiling on the browser credential JSON before it is parsed. A real
-     * WebAuthn assertion/attestation ("none" attestation here) is a few KB; 64 KiB
-     * is far above any legitimate response but caps a multi-megabyte payload before
-     * the deserializer allocates it.
+     * WebAuthn assertion/attestation (even a packed one carrying a certificate chain)
+     * is a few KB; 64 KiB is far above any legitimate response but caps a
+     * multi-megabyte payload before the deserializer allocates it.
      */
     public const MAX_CREDENTIAL_JSON_BYTES = 65536;
 
@@ -27,11 +25,7 @@ final class WebauthnSerializer
 
     public function __construct()
     {
-        $attestationSupport = new AttestationStatementSupportManager([
-            new NoneAttestationStatementSupport(),
-        ]);
-
-        $this->serializer = (new WebauthnSerializerFactory($attestationSupport))->create();
+        $this->serializer = (new WebauthnSerializerFactory(AttestationSupport::manager()))->create();
     }
 
     public function serializeOptions(

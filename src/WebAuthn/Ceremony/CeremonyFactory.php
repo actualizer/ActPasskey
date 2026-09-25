@@ -32,6 +32,8 @@ final class CeremonyFactory
     {
         $factory = new CeremonyStepManagerFactory();
         $factory->setAllowedOrigins($this->origins->origins($realm, $context));
+        // Same set as the serializer, or a parsed format still fails validation.
+        $factory->setAttestationStatementSupportManager(AttestationSupport::manager());
 
         return $factory;
     }

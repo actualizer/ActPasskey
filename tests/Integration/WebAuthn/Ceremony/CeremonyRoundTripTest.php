@@ -334,6 +334,47 @@ final class CeremonyRoundTripTest extends TestCase
         self::assertSame([], $options['excludeCredentials'] ?? []);
     }
 
+    public function testPackedSelfAttestationRegistersAndAuthenticates(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $auth = $this->getContainer()->get(AuthenticationCeremony::class);
+        $credentials = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        // Some platform authenticators answer `attestation: none` with a packed
+        // self-attestation anyway; registration must not fail on them.
+        $create = $reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx);
+        $attJson = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin, 32, 'packed');
+        $reg->verify(Realm::Admin, $accountId, $attJson, $create['challengeId'], $this->host, 'Packed Key', $ctx);
+
+        self::assertCount(1, $credentials->listOwned(Realm::Admin, $accountId, $ctx));
+
+        $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
+        self::assertSame($accountId, $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx));
+    }
+
+    public function testPackedAttestationWithABadSignatureIsRejected(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $credentials = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        $create = $reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx);
+        $attJson = SoftwareAuthenticator::respondToCreate($create['options'], $this->origin, 32, 'packed-invalid');
+
+        try {
+            $reg->verify(Realm::Admin, $accountId, $attJson, $create['challengeId'], $this->host, 'Bad Key', $ctx);
+            self::fail('a packed attestation with a bad signature must be refused');
+        } catch (AuthenticatorResponseVerificationException $exception) {
+            self::assertStringContainsString('Invalid attestation statement', $exception->getMessage());
+        }
+
+        self::assertCount(0, $credentials->listOwned(Realm::Admin, $accountId, $ctx));
+    }
+
     /**
      * Enrolls a credential for the given account via a real create+verify round
      * trip and returns its base64url credential id, so a later assertion can
