@@ -287,6 +287,38 @@ final class PasskeyAdminManageControllerTest extends TestCase
         );
     }
 
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function registerNameProvider(): iterable
+    {
+        yield 'surrounding whitespace is removed' => ["  My Key\u{00A0} ", 'My Key'];
+        yield 'whitespace only falls back to the default' => [" \u{00A0}\t ", 'Passkey'];
+    }
+
+    #[DataProvider('registerNameProvider')]
+    public function testRegisterNormalisesTheName(string $name, string $expected): void
+    {
+        $user = $this->createAdminUser();
+        $token = $this->token($user, 'user-verified');
+
+        $challenge = json_decode(
+            (string) $this->apiRequest('POST', '/api/_action/act-passkey/admin/register-challenge', $token)->getContent(),
+            true
+        );
+        self::assertIsArray($challenge);
+
+        $response = $this->apiRequest('POST', '/api/_action/act-passkey/admin/register', $token, [
+            'passkey_response' => SoftwareAuthenticator::respondToCreate((string) json_encode($challenge['options']), $this->origin),
+            'passkey_challenge_id' => $challenge['challengeId'],
+            'name' => $name,
+        ]);
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode(), (string) $response->getContent());
+
+        $owned = $this->credentials()->listOwned(Realm::Admin, $user['id'], Context::createDefaultContext());
+        self::assertSame($expected, $owned->first()?->getName());
+    }
+
     public function testRegisterChallengeRequiresAnAuthenticatedSession(): void
     {
         $browser = KernelLifecycleManager::createBrowser(KernelLifecycleManager::getKernel());

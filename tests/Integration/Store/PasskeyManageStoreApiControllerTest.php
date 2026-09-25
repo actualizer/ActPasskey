@@ -7,6 +7,7 @@ use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
@@ -278,6 +279,48 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         $owned = $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext());
         self::assertCount(1, $owned);
         self::assertSame('My Phone', $owned->first()?->getName());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function registerNameProvider(): iterable
+    {
+        yield 'surrounding whitespace is removed' => ["  My Key\u{00A0} ", 'My Key'];
+        yield 'whitespace only falls back to the default' => [" \u{00A0}\t ", 'Passkey'];
+    }
+
+    #[DataProvider('registerNameProvider')]
+    public function testRegisterNormalisesTheName(string $name, string $expected): void
+    {
+        $customerId = $this->createCustomerRow();
+        $context = $this->createCustomerContext($customerId);
+        $customer = $this->customerOf($context);
+        $controller = $this->controller();
+
+        $challengeResponse = $controller->registerChallenge(
+            $this->buildHostRequest(),
+            new RequestDataBag(['password' => self::PLAIN_PASSWORD]),
+            $context,
+            $customer
+        );
+        $challenge = json_decode((string) $challengeResponse->getContent(), true);
+        self::assertIsArray($challenge);
+
+        $controller->register(
+            $this->buildHostRequest(),
+            new RequestDataBag([
+                'password' => self::PLAIN_PASSWORD,
+                'passkey_response' => SoftwareAuthenticator::respondToCreate((string) json_encode($challenge['options']), $this->origin),
+                'passkey_challenge_id' => $challenge['challengeId'],
+                'name' => $name,
+            ]),
+            $context,
+            $customer
+        );
+
+        $owned = $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext());
+        self::assertSame($expected, $owned->first()?->getName());
     }
 
     public function testListReturnsOnlyOwnCredentials(): void

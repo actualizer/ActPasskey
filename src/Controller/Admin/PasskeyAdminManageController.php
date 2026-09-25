@@ -122,7 +122,7 @@ class PasskeyAdminManageController
                 $response,
                 $challengeId,
                 $request->getHost(),
-                is_string($name) && $name !== '' ? $name : 'Passkey',
+                $this->registrationName($name),
                 $context,
                 $this->displayName($request),
                 $this->userName($request),
@@ -199,6 +199,17 @@ class PasskeyAdminManageController
         // it decay on its configured interval instead.
 
         return new Response(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * The name is optional at registration: surrounding whitespace is dropped, and an
+     * absent or blank name falls back to the default label.
+     */
+    private function registrationName(mixed $name): string
+    {
+        $name = is_string($name) ? mb_trim($name) : '';
+
+        return $name !== '' ? $name : 'Passkey';
     }
 
     private function validateName(string $name): void

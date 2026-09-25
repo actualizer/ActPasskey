@@ -175,7 +175,7 @@ class PasskeyManageStoreApiController
                 $response,
                 $challengeId,
                 $request->getHost(),
-                is_string($name) && $name !== '' ? $name : 'Passkey',
+                $this->registrationName($name),
                 $context->getContext(),
                 $this->displayNameFor($customer),
                 (string) $customer->getEmail(),
@@ -282,6 +282,17 @@ class PasskeyManageStoreApiController
         $definition->add('password', new NotBlank(), new CustomerPasswordMatches(salesChannelContext: $context));
 
         $this->validator->validate(['password' => $data->get('password')], $definition);
+    }
+
+    /**
+     * The name is optional at registration: surrounding whitespace is dropped, and an
+     * absent or blank name falls back to the default label.
+     */
+    private function registrationName(mixed $name): string
+    {
+        $name = is_string($name) ? mb_trim($name) : '';
+
+        return $name !== '' ? $name : 'Passkey';
     }
 
     private function validateName(string $name): void
