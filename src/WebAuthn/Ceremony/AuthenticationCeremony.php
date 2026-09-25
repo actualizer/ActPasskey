@@ -95,14 +95,14 @@ final class AuthenticationCeremony
         }
 
         // A credential is bound to the relying party it was registered for. The
-        // library validates the assertion's rpIdHash against the CURRENTLY
-        // resolved rp id, not the STORED one — so on a multi-domain install a key
-        // enrolled for one sales-channel domain could otherwise authenticate on
-        // another if an authenticator is induced to sign for that rp id. NULL is a
-        // pre-Migration1752624300 legacy row with no stored binding and stays
+        // library validates the assertion's rpIdHash against the rp id of the
+        // options, not the STORED one — so on a multi-domain install a key enrolled
+        // for one sales-channel domain could otherwise authenticate on another if an
+        // authenticator is induced to sign for that rp id. Compared against
+        // `$options->rpId`: exactly the value the assertion is checked against. NULL
+        // is a pre-Migration1752624300 legacy row with no stored binding and stays
         // usable so those owners are not locked out.
-        $resolvedRpId = $this->rpIdResolver->resolve($realm, $host, $context);
-        if ($entity->getRpId() !== null && $entity->getRpId() !== $resolvedRpId) {
+        if ($entity->getRpId() !== null && $entity->getRpId() !== $options->rpId) {
             throw new RuntimeException('Credential is bound to a different relying party.');
         }
 
