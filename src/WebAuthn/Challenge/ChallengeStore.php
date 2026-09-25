@@ -20,6 +20,12 @@ final class ChallengeStore
     private const KEY_PREFIX = 'act_passkey_challenge.';
     private const LOCK_PREFIX = 'act_passkey_challenge_consume.';
 
+    /**
+     * Challenge ids are always Uuid::randomHex(). `\z`, not `$`: `$` also matches
+     * before a trailing newline.
+     */
+    private const ID_PATTERN = '/^[0-9a-f]{32}\z/';
+
     public function __construct(
         private readonly CacheItemPoolInterface $cache,
         private readonly ClockInterface $clock,
@@ -58,7 +64,19 @@ final class ChallengeStore
         Realm $realm,
         ?string $binding = null
     ): ?string {
+        // Anything else never reaches a cache or lock key.
+        if (preg_match(self::ID_PATTERN, $challengeId) !== 1) {
+            return null;
+        }
+
         $key = self::KEY_PREFIX . $challengeId;
+
+        // Only a challenge that exists gets a lock: the default `flock` store never
+        // deletes its lock files, so locking first would leave one file per invented
+        // id behind. The hit is checked again under the lock below.
+        if (!$this->cache->hasItem($key)) {
+            return null;
+        }
 
         // getItem-then-deleteItem is not atomic on a PSR-6 pool: two near-simultaneous
         // requests could both observe the hit before either deletes, and both redeem

@@ -100,7 +100,7 @@ On a single application server this is correct. Behind a load balancer with more
 For a clustered deployment, point both at shared backends:
 
 - Override the challenge pool with a shared adapter (for example Redis) via `framework.cache.pools.act_passkey.challenge_pool.adapter` in your own config. Because of the pinning above, the plugin will **not** switch automatically when you move the rest of Shopware to a shared cache.
-- Ensure the application lock uses a shared store (`LOCK_DSN`, for example Redis or a database) instead of the default `flock`. A shop already running multiple nodes normally has this configured for Shopware core anyway.
+- Ensure the application lock uses a shared store (`LOCK_DSN`, for example Redis or a database) instead of the default `flock`. A shop already running multiple nodes normally has this configured for Shopware core anyway. On a single server, the default `flock` store also leaves one empty lock file per redeemed challenge in the system temp directory, because the lock component never deletes them; pointing `LOCK_DSN` at `semaphore`, Redis or a database avoids these files.
 
 ### Credential names
 

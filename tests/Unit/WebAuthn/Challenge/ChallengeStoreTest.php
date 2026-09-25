@@ -4,9 +4,11 @@ use Actualize\Passkey\WebAuthn\Challenge\ChallengePurpose;
 use Actualize\Passkey\WebAuthn\Challenge\ChallengeStore;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use PHPUnit\Framework\TestCase;
+use Shopware\Core\Framework\Uuid\Uuid;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\SharedLockInterface;
 use Symfony\Component\Lock\Store\InMemoryStore;
 final class ChallengeStoreTest extends TestCase {
     private function makeStore(MockClock $clock, ?LockFactory $lockFactory = null): ChallengeStore {
@@ -112,5 +114,47 @@ final class ChallengeStoreTest extends TestCase {
         $store = new ChallengeStore($cache, new MockClock(), new LockFactory(new InMemoryStore()));
         $store->issue(random_bytes(32), ChallengePurpose::Authentication, Realm::Customer, binding: 'token-a');
         self::assertStringNotContainsString('token-a', serialize($cache->getValues()));
+    }
+    public function testMalformedIdIsRejectedWithoutTakingALock(): void {
+        $locks = $this->countingLockFactory();
+        $store = $this->makeStore(new MockClock(), $locks);
+        $malformed = [
+            'nope',
+            str_repeat('A', 32),               // upper case: randomHex() never produces it
+            str_repeat('a', 31),
+            str_repeat('a', 33),
+            str_repeat('a', 32) . "\n",        // `$` alone would accept this
+            '../../' . str_repeat('a', 26),
+        ];
+        foreach ($malformed as $id) {
+            self::assertNull($store->consume($id, ChallengePurpose::Authentication, Realm::Admin), var_export($id, true));
+        }
+        self::assertSame(0, $locks->created, 'a malformed id must never reach the lock store');
+    }
+    public function testUnknownWellFormedIdIsRejectedWithoutTakingALock(): void {
+        $locks = $this->countingLockFactory();
+        $store = $this->makeStore(new MockClock(), $locks);
+        self::assertNull($store->consume(Uuid::randomHex(), ChallengePurpose::Authentication, Realm::Admin));
+        self::assertSame(0, $locks->created, 'the default flock store would leave a file for every invented id');
+    }
+    public function testKnownIdIsStillRedeemedUnderTheLockExactlyOnce(): void {
+        $locks = $this->countingLockFactory();
+        $store = $this->makeStore(new MockClock(), $locks);
+        $raw = random_bytes(32);
+        $id = $store->issue($raw, ChallengePurpose::Authentication, Realm::Admin);
+        self::assertSame($raw, $store->consume($id, ChallengePurpose::Authentication, Realm::Admin));
+        self::assertSame(1, $locks->created, 'a real redemption must still be serialized');
+        self::assertNull($store->consume($id, ChallengePurpose::Authentication, Realm::Admin), 'single-use');
+    }
+    private function countingLockFactory(): LockFactory {
+        return new class(new InMemoryStore()) extends LockFactory {
+            public int $created = 0;
+
+            public function createLock(string $resource, ?float $ttl = 300.0, bool $autoRelease = true): SharedLockInterface {
+                ++$this->created;
+
+                return parent::createLock($resource, $ttl, $autoRelease);
+            }
+        };
     }
 }
