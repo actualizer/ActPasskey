@@ -82,11 +82,22 @@ Application.addServiceProviderDecorator('loginService', (loginService) => {
             { baseURL: context.apiPath },
         );
 
-        return loginService.setBearerAuthentication({
+        // Same sequence as core's loginByUsername(): renew the activity timestamp
+        // before storing the token, or a stale one from before an inactivity logout
+        // ends the fresh session again; then flag the login so
+        // notifyOnLoginListener() runs the registered login listeners. Both reads
+        // happen at click time, after boot — never hoist them to module level.
+        Shopware.Service('userActivityService').updateLastUserActivity();
+
+        const auth = loginService.setBearerAuthentication({
             access: tokenResponse.data.access_token,
             refresh: tokenResponse.data.refresh_token,
             expiry: tokenResponse.data.expires_in,
         });
+
+        sessionStorage.setItem('redirectFromLogin', 'true');
+
+        return auth;
     };
 
     return loginService;
