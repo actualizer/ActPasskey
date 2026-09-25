@@ -3,6 +3,7 @@
 namespace Actualize\Passkey\WebAuthn\Customer;
 
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Customer\CustomerCollection;
@@ -28,6 +29,7 @@ final class CustomerPasskeyLoginService
         private readonly AccountService $accountService,
         private readonly EntityRepository $customerRepository,
         private readonly LoggerInterface $logger,
+        private readonly CredentialRepository $credentials,
     ) {
     }
 
@@ -36,7 +38,7 @@ final class CustomerPasskeyLoginService
         try {
             // Redeemable only in the context that fetched the challenge; an attacker
             // cannot obtain a challenge bound to the victim's context token.
-            $customerId = $this->authenticationCeremony->verify(
+            $result = $this->authenticationCeremony->verify(
                 Realm::Customer,
                 $rawResponseJson,
                 $challengeId,
@@ -55,7 +57,7 @@ final class CustomerPasskeyLoginService
         }
 
         $customer = $this->customerRepository
-            ->search(new Criteria([$customerId]), $context->getContext())
+            ->search(new Criteria([$result->accountId]), $context->getContext())
             ->getEntities()
             ->first();
 
@@ -66,6 +68,12 @@ final class CustomerPasskeyLoginService
         // The credential is valid — but the account may not be allowed to log in.
         $this->guard->assertEligible($customer);
 
-        return $this->accountService->loginById($customerId, $context);
+        $token = $this->accountService->loginById($result->accountId, $context);
+
+        // Stamped only once the session exists: a refused login must not look like a
+        // recent use.
+        $this->credentials->markUsed($result->credentialEntityId, $context->getContext(), new \DateTimeImmutable());
+
+        return $token;
     }
 }

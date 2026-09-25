@@ -6,9 +6,11 @@ use Actualize\Passkey\Controller\Store\PasskeyStoreApiController;
 use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard;
 use Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
@@ -73,6 +75,51 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
 
         self::assertInstanceOf(ContextTokenResponse::class, $response);
         self::assertNotSame('', $response->getToken());
+
+        $stored = $this->getContainer()->get(CredentialRepository::class)
+            ->listOwned(Realm::Customer, $customerId, $ctx)
+            ->first();
+        self::assertNotNull($stored);
+        self::assertNotNull($stored->getLastUsedAt(), 'an accepted login stamps the credential');
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function ineligibleCustomerProvider(): iterable
+    {
+        yield 'inactive' => [['active' => false]];
+        yield 'double opt-in not confirmed' => [['doubleOptInRegistration' => true, 'doubleOptInConfirmDate' => null]];
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     */
+    #[DataProvider('ineligibleCustomerProvider')]
+    public function testRefusedLoginDoesNotStampLastUsedAt(array $overrides): void
+    {
+        $controller = $this->getContainer()->get(PasskeyStoreApiController::class);
+        $ctx = Context::createDefaultContext();
+        $customerId = $this->createCustomer($overrides);
+
+        $this->registerPasskey(Realm::Customer, $customerId, $ctx);
+
+        $salesChannelContext = $this->createStorefrontContext();
+        $requestDataBag = $this->buildLoginRequestDataBag(Realm::Customer, $ctx, $salesChannelContext);
+
+        try {
+            $controller->login($this->buildHostRequest(), $requestDataBag, $salesChannelContext);
+            self::fail('the eligibility guard must refuse this login');
+        } catch (CustomerException) {
+            // expected
+        }
+
+        $stored = $this->getContainer()->get(CredentialRepository::class)
+            ->listOwned(Realm::Customer, $customerId, $ctx)
+            ->first();
+        self::assertNotNull($stored);
+        self::assertNull($stored->getLastUsedAt(), 'a refused login must not look like a recent use');
+        self::assertSame(1, $stored->getSignCount(), 'the counter still advances for clone detection');
     }
 
     public function testAdminCredentialIsRejectedAtCustomerLoginRoute(): void
@@ -209,6 +256,7 @@ final class CustomerPasskeyLoginRouteTest extends TestCase
             $this->getContainer()->get(AccountService::class),
             $this->getContainer()->get('customer.repository'),
             $spy,
+            $this->getContainer()->get(CredentialRepository::class),
         );
 
         // A challenge id that was never issued makes the ceremony throw, which the

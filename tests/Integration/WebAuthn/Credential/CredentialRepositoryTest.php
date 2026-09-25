@@ -235,7 +235,7 @@ final class CredentialRepositoryTest extends TestCase
         self::assertSame('n', $entity->getName());
     }
 
-    public function testUpdateSignCountAlsoStampsLastUsedAtWhenGiven(): void
+    public function testMarkUsedStampsLastUsedAt(): void
     {
         $sut = $this->getContainer()->get(CredentialRepository::class);
         $ctx = Context::createDefaultContext();
@@ -248,16 +248,15 @@ final class CredentialRepositoryTest extends TestCase
         self::assertNull($row->getLastUsedAt(), 'freshly seeded credential has no last-used stamp');
 
         $stamp = new \DateTimeImmutable('2024-06-01T12:00:00+00:00');
-        $sut->updateSignCount($row->getId(), 5, $ctx, $stamp);
+        $sut->markUsed($row->getId(), $ctx, $stamp);
 
         $updated = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
         self::assertNotNull($updated);
-        self::assertSame(5, $updated->getSignCount());
         self::assertNotNull($updated->getLastUsedAt());
         self::assertSame($stamp->getTimestamp(), $updated->getLastUsedAt()->getTimestamp());
     }
 
-    public function testUpdateSignCountLeavesLastUsedAtUntouchedWhenNotGiven(): void
+    public function testUpdateSignCountLeavesLastUsedAtUntouched(): void
     {
         $sut = $this->getContainer()->get(CredentialRepository::class);
         $ctx = Context::createDefaultContext();
@@ -268,15 +267,8 @@ final class CredentialRepositoryTest extends TestCase
         $row = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
         self::assertNotNull($row);
 
-        // Set an initial stamp via the 4-arg form.
         $stamp = new \DateTimeImmutable('2024-06-01T12:00:00+00:00');
-        $sut->updateSignCount($row->getId(), 3, $ctx, $stamp);
-
-        $withStamp = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);
-        self::assertNotNull($withStamp);
-        self::assertNotNull($withStamp->getLastUsedAt());
-
-        // The existing 3-arg form must not clobber the column with null.
+        $sut->markUsed($row->getId(), $ctx, $stamp);
         $sut->updateSignCount($row->getId(), 4, $ctx);
 
         $unchanged = $sut->findOneByCredentialId($cred, Realm::Admin, $ctx);

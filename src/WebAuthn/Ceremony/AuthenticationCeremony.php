@@ -64,7 +64,9 @@ final class AuthenticationCeremony
     }
 
     /**
-     * @return string the resolved account id (admin user id or customer id)
+     * Writes the sign count (clone detection must not wait for the caller) but never
+     * `lastUsedAt`: the caller stamps that via CredentialRepository::markUsed() once
+     * it has accepted the account.
      */
     public function verify(
         Realm $realm,
@@ -73,7 +75,7 @@ final class AuthenticationCeremony
         string $host,
         Context $context,
         ?string $binding = null
-    ): string {
+    ): AuthenticationResult {
         $challenge = $this->challengeStore->consume($challengeId, ChallengePurpose::Authentication, $realm, $binding);
         if ($challenge === null) {
             throw new RuntimeException('Invalid or expired authentication challenge.');
@@ -116,8 +118,7 @@ final class AuthenticationCeremony
         $this->credentials->updateSignCount(
             $entity->getId(),
             $response->authenticatorData->signCount,
-            $context,
-            new \DateTimeImmutable()
+            $context
         );
 
         $accountId = $entity->getRealm() === Realm::Admin->value
@@ -127,7 +128,7 @@ final class AuthenticationCeremony
             throw new RuntimeException('Stored credential has no owner for its realm.');
         }
 
-        return $accountId;
+        return new AuthenticationResult($accountId, $entity->getId());
     }
 
     private function buildOptions(

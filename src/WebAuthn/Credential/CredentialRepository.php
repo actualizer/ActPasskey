@@ -55,20 +55,29 @@ final class CredentialRepository
         );
     }
 
-    public function updateSignCount(
-        string $id,
-        int $signCount,
-        Context $context,
-        ?\DateTimeInterface $lastUsedAt = null
-    ): void {
-        $payload = ['id' => $id, 'signCount' => $signCount];
-        if ($lastUsedAt !== null) {
-            $payload['lastUsedAt'] = $lastUsedAt;
-        }
-
+    public function updateSignCount(string $id, int $signCount, Context $context): void
+    {
         $context->scope(
             Context::SYSTEM_SCOPE,
-            fn (Context $systemContext) => $this->credentialRepository->update([$payload], $systemContext)
+            fn (Context $systemContext) => $this->credentialRepository->update(
+                [['id' => $id, 'signCount' => $signCount]],
+                $systemContext
+            )
+        );
+    }
+
+    /**
+     * Only for a login the caller has ACCEPTED: a refused one (inactive account,
+     * foreign user) must not show up as a recent use.
+     */
+    public function markUsed(string $id, Context $context, \DateTimeInterface $usedAt): void
+    {
+        $context->scope(
+            Context::SYSTEM_SCOPE,
+            fn (Context $systemContext) => $this->credentialRepository->update(
+                [['id' => $id, 'lastUsedAt' => $usedAt]],
+                $systemContext
+            )
         );
     }
 

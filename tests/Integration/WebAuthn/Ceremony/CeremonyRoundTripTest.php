@@ -48,7 +48,7 @@ final class CeremonyRoundTripTest extends TestCase
 
         $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
         $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
-        $resolved = $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx);
+        $resolved = $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx)->accountId;
 
         self::assertSame($accountId, $resolved);
     }
@@ -66,7 +66,7 @@ final class CeremonyRoundTripTest extends TestCase
 
         $req = $auth->createOptions(Realm::Customer, $this->host, $ctx);
         $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
-        $resolved = $auth->verify(Realm::Customer, $asgJson, $req['challengeId'], $this->host, $ctx);
+        $resolved = $auth->verify(Realm::Customer, $asgJson, $req['challengeId'], $this->host, $ctx)->accountId;
 
         self::assertSame($accountId, $resolved);
     }
@@ -90,7 +90,7 @@ final class CeremonyRoundTripTest extends TestCase
 
         $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
         $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
-        self::assertSame($accountId, $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx));
+        self::assertSame($accountId, $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx)->accountId);
     }
 
     public function testCustomerCredentialRejectedAtAdminRealm(): void
@@ -162,7 +162,7 @@ final class CeremonyRoundTripTest extends TestCase
         $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
         $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
 
-        self::assertSame($accountId, $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx));
+        self::assertSame($accountId, $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx)->accountId);
     }
 
     public function testRegistrationRejectsAnOverlongCredentialName(): void
@@ -199,7 +199,7 @@ final class CeremonyRoundTripTest extends TestCase
         // First auth advances the stored counter to 5.
         $req1 = $auth->createOptions(Realm::Admin, $this->host, $ctx);
         $asg1 = SoftwareAuthenticator::respondToGet($req1['options'], $this->origin, 5);
-        self::assertSame($accountId, $auth->verify(Realm::Admin, $asg1, $req1['challengeId'], $this->host, $ctx));
+        self::assertSame($accountId, $auth->verify(Realm::Admin, $asg1, $req1['challengeId'], $this->host, $ctx)->accountId);
 
         // Replay with a non-increasing counter -> library CheckCounter throws.
         $req2 = $auth->createOptions(Realm::Admin, $this->host, $ctx);
@@ -246,7 +246,7 @@ final class CeremonyRoundTripTest extends TestCase
             $request['challengeId'],
             $this->host,
             $ctx
-        );
+        )->accountId;
 
         self::assertSame($accountId, $resolved);
 
@@ -278,7 +278,7 @@ final class CeremonyRoundTripTest extends TestCase
         self::assertNotSame('ada@example.com', $options['user']['id']);
     }
 
-    public function testSuccessfulAssertionStampsLastUsedAt(): void
+    public function testVerifyAdvancesTheSignCountButLeavesLastUsedAtToTheCaller(): void
     {
         $reg = $this->getContainer()->get(RegistrationCeremony::class);
         $auth = $this->getContainer()->get(AuthenticationCeremony::class);
@@ -296,11 +296,15 @@ final class CeremonyRoundTripTest extends TestCase
 
         $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
         $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
-        $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx);
+        $result = $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx);
 
-        $afterAssertion = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first();
-        self::assertNotNull($afterAssertion);
-        self::assertNotNull($afterAssertion->getLastUsedAt(), 'successful assertion must stamp last_used_at');
+        self::assertSame($accountId, $result->accountId);
+        self::assertSame($enrolled->getId(), $result->credentialEntityId);
+
+        $after = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first();
+        self::assertNotNull($after);
+        self::assertSame(1, $after->getSignCount(), 'clone detection needs the counter before any account check');
+        self::assertNull($after->getLastUsedAt(), 'only a caller that accepted the login may stamp it');
     }
 
     public function testCreateOptionsExcludeTheAccountsEnrolledCredentials(): void
@@ -352,7 +356,7 @@ final class CeremonyRoundTripTest extends TestCase
 
         $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
         $asgJson = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
-        self::assertSame($accountId, $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx));
+        self::assertSame($accountId, $auth->verify(Realm::Admin, $asgJson, $req['challengeId'], $this->host, $ctx)->accountId);
     }
 
     public function testPackedAttestationWithABadSignatureIsRejected(): void

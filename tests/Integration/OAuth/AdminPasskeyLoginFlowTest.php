@@ -2,9 +2,11 @@
 
 namespace Actualize\Passkey\Tests\Integration\OAuth;
 
+use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialEntity;
 use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
@@ -80,6 +82,11 @@ final class AdminPasskeyLoginFlowTest extends TestCase
         self::assertIsArray($data);
         self::assertArrayHasKey('access_token', $data);
         self::assertNotEmpty($data['access_token']);
+
+        self::assertNotNull(
+            $this->storedCredential(Realm::Admin, $adminUserId)->getLastUsedAt(),
+            'an accepted login stamps the credential'
+        );
     }
 
     /**
@@ -267,6 +274,10 @@ final class AdminPasskeyLoginFlowTest extends TestCase
         ]);
 
         $this->assertInvalidGrant($response);
+
+        $stored = $this->storedCredential(Realm::Admin, $adminUserId);
+        self::assertNull($stored->getLastUsedAt(), 'a refused login must not look like a recent use');
+        self::assertSame(1, $stored->getSignCount(), 'the counter still advances for clone detection');
     }
 
     /**
@@ -277,26 +288,32 @@ final class AdminPasskeyLoginFlowTest extends TestCase
      */
     public function testExpectedUsernameMismatchIsRejected(): void
     {
-        $response = $this->requestTokenForNewAdmin(Uuid::randomHex());
+        $result = $this->requestTokenForNewAdmin(Uuid::randomHex());
 
-        $this->assertInvalidGrant($response);
+        $this->assertInvalidGrant($result['response']);
+        $stored = $this->storedCredential(Realm::Admin, $result['userId']);
+        self::assertNull($stored->getLastUsedAt(), 'a refused login must not look like a recent use');
+        self::assertSame(1, $stored->getSignCount(), 'the counter still advances for clone detection');
     }
 
     public function testMatchingExpectedUsernameIssuesToken(): void
     {
-        $response = $this->requestTokenForNewAdmin(null, true);
+        $result = $this->requestTokenForNewAdmin(null, true);
 
-        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        self::assertSame(200, $result['response']->getStatusCode(), (string) $result['response']->getContent());
+        self::assertNotNull($this->storedCredential(Realm::Admin, $result['userId'])->getLastUsedAt());
     }
 
     /**
      * Registers a passkey for a fresh admin and redeems it with `passkey_expected_username`
      * set to `$expectedUsername`, or to the admin's own name when `$useOwnName` is true.
+     *
+     * @return array{response: \Symfony\Component\HttpFoundation\Response, userId: string}
      */
     private function requestTokenForNewAdmin(
         ?string $expectedUsername,
         bool $useOwnName = false
-    ): \Symfony\Component\HttpFoundation\Response {
+    ): array {
         $ctx = Context::createDefaultContext();
         $adminUserId = $this->createAdminUser();
 
@@ -324,14 +341,27 @@ final class AdminPasskeyLoginFlowTest extends TestCase
         $req = $auth->createOptions(Realm::Admin, $this->host, $ctx);
         $assertion = SoftwareAuthenticator::respondToGet($req['options'], $this->origin);
 
-        return $this->requestToken([
-            'grant_type' => 'passkey',
-            'client_id' => 'administration',
-            'scope' => 'write',
-            'passkey_response' => $assertion,
-            'passkey_challenge_id' => $req['challengeId'],
-            'passkey_expected_username' => $expectedUsername,
-        ]);
+        return [
+            'response' => $this->requestToken([
+                'grant_type' => 'passkey',
+                'client_id' => 'administration',
+                'scope' => 'write',
+                'passkey_response' => $assertion,
+                'passkey_challenge_id' => $req['challengeId'],
+                'passkey_expected_username' => $expectedUsername,
+            ]),
+            'userId' => $adminUserId,
+        ];
+    }
+
+    private function storedCredential(Realm $realm, string $accountId): PasskeyCredentialEntity
+    {
+        $credential = $this->getContainer()->get(CredentialRepository::class)
+            ->listOwned($realm, $accountId, Context::createDefaultContext())
+            ->first();
+        self::assertInstanceOf(PasskeyCredentialEntity::class, $credential);
+
+        return $credential;
     }
 
     public function testCustomerCredentialRejectedAtAdminTokenEndpoint(): void

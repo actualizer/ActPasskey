@@ -3,6 +3,7 @@
 namespace Actualize\Passkey\OAuth;
 
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Doctrine\DBAL\Connection;
 use League\OAuth2\Server\Exception\OAuthServerException;
@@ -31,6 +32,7 @@ class PasskeyGrant extends AbstractGrant
         private readonly LoggerInterface $logger,
         private readonly AdminLoginPolicy $loginPolicy,
         private readonly Connection $connection,
+        private readonly CredentialRepository $credentials,
     ) {
         $this->setRefreshTokenRepository($refreshTokenRepository);
     }
@@ -98,7 +100,7 @@ class PasskeyGrant extends AbstractGrant
             // Grant runs pre-controller with no request-scoped context; CLI context is the
             // store-compliant system context here. No challenge binding: the admin token
             // endpoint is stateless, so there is no session context to bind to.
-            $userId = $this->authenticationCeremony->verify(
+            $result = $this->authenticationCeremony->verify(
                 Realm::Admin,
                 $responseJson,
                 $challengeId,
@@ -112,7 +114,9 @@ class PasskeyGrant extends AbstractGrant
             throw OAuthServerException::invalidGrant();
         }
 
-        // AuthenticationCeremony::verify() is typed `string`, not `non-empty-string` — defend
+        $userId = $result->accountId;
+
+        // AuthenticationResult::$accountId is typed `string`, not `non-empty-string` — defend
         // against an empty resolved id before it reaches User's non-empty-string constructor.
         if ($userId === '') {
             throw OAuthServerException::invalidGrant();
@@ -138,6 +142,10 @@ class PasskeyGrant extends AbstractGrant
             $this->logger->notice('Passkey admin login rejected: passkey belongs to a different user');
             throw OAuthServerException::invalidGrant();
         }
+
+        // Stamped only now, after every refusal above: a rejected login must not look
+        // like a recent use.
+        $this->credentials->markUsed($result->credentialEntityId, Context::createCLIContext(), new \DateTimeImmutable());
 
         return $userId;
     }

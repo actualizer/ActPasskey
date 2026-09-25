@@ -5,6 +5,7 @@ namespace Actualize\Passkey\Tests\Integration\OAuth;
 use Actualize\Passkey\OAuth\AdminLoginPolicy;
 use Actualize\Passkey\OAuth\PasskeyGrant;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Doctrine\DBAL\Connection;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use PHPUnit\Framework\TestCase;
@@ -29,6 +30,7 @@ final class PasskeyGrantIdentifierTest extends TestCase
             new NullLogger(),
             new AdminLoginPolicy([]),
             $this->getContainer()->get(Connection::class),
+            $this->getContainer()->get(CredentialRepository::class),
         );
 
         self::assertSame('passkey', $grant->getIdentifier());

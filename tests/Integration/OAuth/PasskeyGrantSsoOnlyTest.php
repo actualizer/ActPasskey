@@ -6,6 +6,7 @@ use Actualize\Passkey\OAuth\AdminLoginPolicy;
 use Actualize\Passkey\OAuth\PasskeyGrant;
 use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
+use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Doctrine\DBAL\Connection;
@@ -95,6 +96,7 @@ final class PasskeyGrantSsoOnlyTest extends TestCase
             new NullLogger(),
             $policy,
             $this->getContainer()->get(Connection::class),
+            $this->getContainer()->get(CredentialRepository::class),
         );
         // Normally set by PasskeyGrantSubscriber, which this test deliberately bypasses.
         $grant->setRefreshTokenTTL(new \DateInterval('P1W'));

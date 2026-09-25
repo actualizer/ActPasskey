@@ -120,6 +120,7 @@
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\AccountService"/>
             <argument type="service" id="customer.repository"/>
             <argument type="service" id="monolog.logger.act_passkey"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
         </service>
 
         <!-- Store-api passkey login (challenge + login, both pre-login /
@@ -205,6 +206,7 @@
             <argument type="service" id="monolog.logger.act_passkey"/>
             <argument type="service" id="Actualize\Passkey\OAuth\AdminLoginPolicy"/>
             <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
         </service>
 
         <service id="Actualize\Passkey\OAuth\AdminLoginPolicy">
