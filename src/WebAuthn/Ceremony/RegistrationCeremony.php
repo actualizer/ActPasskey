@@ -16,6 +16,7 @@ use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\AuthenticatorSelectionCriteria;
 use Webauthn\PublicKeyCredentialCreationOptions;
+use Webauthn\PublicKeyCredentialDescriptor;
 use Webauthn\PublicKeyCredentialParameters;
 use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
@@ -140,6 +141,29 @@ final class RegistrationCeremony
                 residentKey: AuthenticatorSelectionCriteria::RESIDENT_KEY_REQUIREMENT_REQUIRED,
             ),
             PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE,
+            $this->excludeCredentials($realm, $accountId, $context),
         );
+    }
+
+    /**
+     * Every key the account already owns, so an authenticator refuses to enroll the
+     * same one twice. Deliberately not filtered by rp id: the browser ignores
+     * descriptors of other relying parties. Both createOptions() and verify() build
+     * through here, so the two option sets stay identical.
+     *
+     * @return list<PublicKeyCredentialDescriptor>
+     */
+    private function excludeCredentials(Realm $realm, string $accountId, Context $context): array
+    {
+        $descriptors = [];
+        foreach ($this->credentials->listOwned($realm, $accountId, $context) as $credential) {
+            $descriptors[] = PublicKeyCredentialDescriptor::create(
+                PublicKeyCredentialDescriptor::CREDENTIAL_TYPE_PUBLIC_KEY,
+                $credential->getCredentialId(),
+                $credential->getTransports() ?? []
+            );
+        }
+
+        return $descriptors;
     }
 }

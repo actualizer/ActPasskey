@@ -303,6 +303,37 @@ final class CeremonyRoundTripTest extends TestCase
         self::assertNotNull($afterAssertion->getLastUsedAt(), 'successful assertion must stamp last_used_at');
     }
 
+    public function testCreateOptionsExcludeTheAccountsEnrolledCredentials(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+
+        $fresh = json_decode($reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx)['options'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame([], $fresh['excludeCredentials'] ?? [], 'nothing enrolled yet, nothing to exclude');
+
+        $enrolled = $this->enrollAndReturnCredentialId($reg, $ctx, $accountId, 'First key');
+
+        $options = json_decode($reg->createOptions(Realm::Admin, $accountId, $this->host, $ctx)['options'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($options['excludeCredentials'] ?? null);
+        self::assertSame([$enrolled], array_column($options['excludeCredentials'], 'id'));
+        self::assertSame('public-key', $options['excludeCredentials'][0]['type']);
+    }
+
+    public function testExcludeCredentialsNeverListAnotherAccountsKeys(): void
+    {
+        $reg = $this->getContainer()->get(RegistrationCeremony::class);
+        $ctx = Context::createDefaultContext();
+        $owner = $this->createAdminUser();
+        $other = $this->createAdminUser();
+
+        $this->enrollAndReturnCredentialId($reg, $ctx, $owner, 'Owner key');
+
+        // The options go to the browser: another account's credential ids must not leak.
+        $options = json_decode($reg->createOptions(Realm::Admin, $other, $this->host, $ctx)['options'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame([], $options['excludeCredentials'] ?? []);
+    }
+
     /**
      * Enrolls a credential for the given account via a real create+verify round
      * trip and returns its base64url credential id, so a later assertion can
