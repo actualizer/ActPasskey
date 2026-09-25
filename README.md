@@ -64,7 +64,7 @@ A login challenge is bound to the sales-channel context that requested it. Headl
 
 If the register button does not appear, the page is not running on a covered HTTPS domain or the browser lacks WebAuthn support (see [Domain coverage](#domain-coverage)).
 
-A passkey that is already registered for the account cannot be registered a second time: the browser or password manager refuses it, usually with a notice of its own, and the **Passkeys** card shows a generic error. Use another authenticator, or remove the existing passkey first.
+A passkey that is already registered for the account cannot be registered a second time: the browser or password manager refuses it, usually with a notice of its own, and the **Passkeys** card reports that the passkey is already registered. Use another authenticator, or remove the existing passkey first.
 
 ### Revoking passkeys of other accounts
 
@@ -108,7 +108,7 @@ For a clustered deployment, point both at shared backends:
 
 ### Credential names
 
-A passkey name is limited to 128 characters. Registering a passkey with a longer name is rejected, and so is a rename beyond that limit: the request fails with a validation error and the existing name stays unchanged. Surrounding whitespace is removed, a name consisting of whitespace only is rejected, and saving an unchanged name sends no request at all.
+A passkey name is limited to 128 characters. Registering a passkey with a longer name is rejected, and so is a rename beyond that limit: the request fails with a validation error and the existing name stays unchanged. Surrounding whitespace is removed. On rename, a name consisting of whitespace only is rejected and saving an unchanged name sends no request at all; on registration, a blank name falls back to "Passkey".
 
 ## Logging
 

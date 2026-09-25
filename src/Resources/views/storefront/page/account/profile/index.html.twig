@@ -6,7 +6,8 @@
              data-act-passkey-manage
              data-challenge-url="{{ path('frontend.account.passkey.register.challenge') }}"
              data-register-url="{{ path('frontend.account.passkey.register') }}"
-             data-error-text="{{ 'act-passkey.manage.error'|trans }}">
+             data-error-text="{{ 'act-passkey.manage.error'|trans }}"
+             data-already-registered-text="{{ 'act-passkey.manage.alreadyRegistered'|trans }}">
             <div class="card-body">
                 <div class="card-title">{{ 'act-passkey.manage.title'|trans|sw_sanitize }}</div>
 

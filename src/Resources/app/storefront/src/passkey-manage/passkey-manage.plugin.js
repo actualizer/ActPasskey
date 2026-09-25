@@ -20,6 +20,7 @@ export default class PasskeyManage extends Plugin {
         this.challengeUrl = this.el.dataset.challengeUrl;
         this.registerUrl = this.el.dataset.registerUrl;
         this.errorText = this.el.dataset.errorText || '';
+        this.alreadyRegisteredText = this.el.dataset.alreadyRegisteredText || this.errorText;
 
         this._initItems();
 
@@ -193,9 +194,11 @@ export default class PasskeyManage extends Plugin {
             };
 
             this._submitRegistration(attestation, challengeId, password);
-        } catch {
-            // Cancelled prompt, no authenticator, or a failed fetch.
-            this._showError();
+        } catch (error) {
+            // InvalidStateError: the authenticator already holds one of the account's
+            // passkeys (excludeCredentials). Anything else — cancelled prompt, no
+            // authenticator, a failed fetch — gets the generic text.
+            this._showError(error?.name === 'InvalidStateError' ? this.alreadyRegisteredText : this.errorText);
         }
     }
 
@@ -221,14 +224,14 @@ export default class PasskeyManage extends Plugin {
         form.submit();
     }
 
-    _showError() {
+    _showError(text = this.errorText) {
         if (!this.errorBox) {
             return;
         }
         // Reveal the region first, then write into it: a role="alert" that receives
         // its text while still hidden is not reliably announced.
         this.errorBox.hidden = false;
-        this.errorBox.textContent = this.errorText;
+        this.errorBox.textContent = text;
     }
 
     _hideError() {

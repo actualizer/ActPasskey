@@ -210,9 +210,13 @@ Component.override('sw-profile-index-general', {
                     message: this.$t('act-passkey.manage.registerSuccess'),
                 });
                 await this.loadPasskeys();
-            } catch {
+            } catch (error) {
+                // InvalidStateError: the authenticator already holds one of this
+                // account's passkeys (excludeCredentials).
                 this.createNotificationError({
-                    message: this.$t('act-passkey.manage.error'),
+                    message: error?.name === 'InvalidStateError'
+                        ? this.$t('act-passkey.manage.alreadyRegistered')
+                        : this.$t('act-passkey.manage.error'),
                 });
             } finally {
                 this.isPasskeyLoading = false;

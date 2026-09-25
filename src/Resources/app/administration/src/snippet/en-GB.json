@@ -32,6 +32,7 @@
             "registerSuccess": "Passkey registered.",
             "deleteSuccess": "Passkey removed.",
             "error": "The request could not be completed.",
+            "alreadyRegistered": "This passkey is already registered for your account.",
             "nameTooLong": "The passkey name must not be longer than {max} characters.",
             "columnName": "Name",
             "columnCreatedAt": "Created at",

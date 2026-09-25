@@ -110,6 +110,20 @@ final class PasskeyAccessibilityMarkupTest extends TestCase
     }
 
     /**
+     * A browser refuses a passkey that is already registered; the card must carry its
+     * own text for that, distinct from the generic error.
+     */
+    public function testCardCarriesADedicatedAlreadyRegisteredText(): void
+    {
+        $card = $this->single($this->xpathFor($this->renderPasskeyCard()), '//*[@data-act-passkey-manage]');
+        $text = $card->getAttribute('data-already-registered-text');
+
+        self::assertNotSame('', $text);
+        self::assertNotSame($card->getAttribute('data-error-text'), $text);
+        self::assertStringNotContainsString('act-passkey.manage', $text, 'the snippet must resolve, not print its key');
+    }
+
+    /**
      * Both plugins write their message into a region that is revealed first, which
      * only announces if the region is a live region to begin with.
      */
