@@ -11,12 +11,11 @@
                 "howTo": {
                     "title": "How it works",
                     "item1": "The plugin works right after activation. The setting below is only needed for special multi-subdomain setups.",
-                    "item2": "Everyone sets up their own passkeys; nobody can add one for other users or customers. Authorised administrators can, however, <strong>revoke</strong> other accounts' passkeys (see below).",
-                    "item3": "Administration: user menu bottom left &gt; <strong>Your profile</strong> &gt; <strong>Passkeys</strong> card &gt; <strong>Register new passkey</strong> (confirm password).",
-                    "item4": "Customers: in the customer account under <strong>Your profile</strong> &gt; <strong>Passkeys</strong> section.",
-                    "item5": "The login page then offers passkey sign-in. Password login always stays available.",
-                    "item6": "No passkey button? The page must run via HTTPS on a shop domain (APP_URL or a sales channel domain), and the browser must support passkeys. With SSO admin login, administrators cannot manage passkeys; the storefront is unaffected. If the admin login is restricted to SSO only, the passkey admin login is disabled as well.",
-                    "item7": "Revoke other accounts' passkeys: <strong>Customers</strong> &gt; customer &gt; <strong>General</strong> tab, or <strong>Settings &gt; Users &amp; permissions</strong> &gt; user, <strong>Passkeys</strong> card in each. Restricted roles need the <strong>Customer passkeys</strong> or <strong>User passkeys</strong> permission (Delete). For users, your own password is requested."
+                    "item2": "Administration: user menu bottom left &gt; <strong>Your profile</strong> &gt; <strong>Passkeys</strong> card &gt; <strong>Register new passkey</strong> (confirm password).",
+                    "item3": "Customers: in the customer account under <strong>Your profile</strong> &gt; <strong>Passkeys</strong> section.",
+                    "item4": "The login page then offers passkey sign-in. Password login always stays available.",
+                    "item5": "No passkey button? The page must run via HTTPS on a shop domain (APP_URL or a sales channel domain), and the browser must support passkeys. With SSO admin login, administrators cannot manage passkeys; the storefront is unaffected. If the admin login is restricted to SSO only, the passkey admin login is disabled as well.",
+                    "item6": "Everyone sets up their own passkeys; nobody can add one for other users or customers. Authorised administrators can, however, <strong>revoke</strong> other accounts' passkeys: <strong>Customers</strong> &gt; customer &gt; <strong>General</strong> tab, or <strong>Settings &gt; Users &amp; permissions</strong> &gt; user, <strong>Passkeys</strong> card in each. Restricted roles need the <strong>Customer passkeys</strong> or <strong>User passkeys</strong> permission (Delete). For users, your own password is requested."
                 },
                 "openProfileLink": "Manage your own passkeys in your profile",
                 "description": "Passwordless passkey login for the storefront and the administration.",
