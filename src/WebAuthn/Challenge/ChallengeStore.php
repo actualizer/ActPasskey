@@ -1,5 +1,7 @@
 <?php declare(strict_types=1);
+
 namespace Actualize\Passkey\WebAuthn\Challenge;
+
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Clock\ClockInterface;
@@ -13,14 +15,17 @@ use Symfony\Component\Lock\LockFactory;
  * Shopware maps that to the array adapter in dev, which lives for one request
  * only, while every passkey flow spans two (issue, then redeem).
  */
-final class ChallengeStore {
+final class ChallengeStore
+{
     private const KEY_PREFIX = 'act_passkey_challenge.';
     private const LOCK_PREFIX = 'act_passkey_challenge_consume.';
+
     public function __construct(
         private readonly CacheItemPoolInterface $cache,
         private readonly ClockInterface $clock,
         private readonly LockFactory $lockFactory,
-    ) {}
+    ) {
+    }
 
     /**
      * `$binding` ties the challenge to the context it was handed out to (the
@@ -47,7 +52,12 @@ final class ChallengeStore {
         return $id;
     }
 
-    public function consume(string $challengeId, ChallengePurpose $purpose, Realm $realm, ?string $binding = null): ?string {
+    public function consume(
+        string $challengeId,
+        ChallengePurpose $purpose,
+        Realm $realm,
+        ?string $binding = null
+    ): ?string {
         $key = self::KEY_PREFIX . $challengeId;
 
         // getItem-then-deleteItem is not atomic on a PSR-6 pool: two near-simultaneous
