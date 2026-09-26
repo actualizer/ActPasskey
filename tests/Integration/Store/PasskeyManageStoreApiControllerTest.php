@@ -7,8 +7,12 @@ use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard;
+use Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Clock\ClockInterface;
+use Psr\Log\NullLogger;
 use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\Exception\CustomerNotFoundByIdException;
@@ -16,20 +20,26 @@ use Shopware\Core\Checkout\Customer\Exception\CustomerOptinNotCompletedException
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\RateLimiter\RateLimiter;
+use Shopware\Core\Framework\RateLimiter\RateLimiterFactory;
 use Shopware\Core\Framework\Routing\RoutingException;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\SalesChannelApiTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
+use Shopware\Core\Framework\Validation\DataValidator;
 use Shopware\Core\Framework\Validation\Exception\ConstraintViolationException;
 use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Shopware\Core\Test\TestDefaults;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
 /**
  * Proves the customer self-service store-api: enrollment is only possible for an
@@ -521,6 +531,141 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
                 ]], $systemContext);
             }
         );
+    }
+
+    /**
+     * A customer who dismisses the browser prompt has already proven the password;
+     * those attempts must not use up the budget that throttles password guesses.
+     */
+    public function testCancelledRegistrationsDoNotUseUpTheRegisterBudget(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $context = $this->createCustomerContext($customerId);
+        $controller = $this->controllerWithRealLimiters();
+
+        for ($i = 1; $i <= 3 * $this->limit('act_passkey_register'); ++$i) {
+            $response = $controller->registerChallenge(
+                $this->buildHostRequest(),
+                new RequestDataBag(['password' => self::PLAIN_PASSWORD]),
+                $context,
+                $this->customerOf($context)
+            );
+            self::assertSame(Response::HTTP_OK, $response->getStatusCode(), "attempt {$i}");
+        }
+    }
+
+    /**
+     * The password check is an oracle: wrong guesses must still pile up, and once the
+     * bucket refuses, even the right password gets no answer until it has cooled down.
+     */
+    public function testWrongPasswordsStillAccumulateUntilTheChallengeIsRefused(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $context = $this->createCustomerContext($customerId);
+        $controller = $this->controllerWithRealLimiters();
+
+        for ($i = 1; $i <= $this->limit('act_passkey_register'); ++$i) {
+            try {
+                $controller->registerChallenge(
+                    $this->buildHostRequest(),
+                    new RequestDataBag(['password' => 'wrong-' . $i]),
+                    $context,
+                    $this->customerOf($context)
+                );
+                self::fail('a wrong password must not yield a challenge');
+            } catch (ConstraintViolationException) {
+                // expected: counted, then rejected
+            }
+        }
+
+        $this->expectException(TooManyRequestsHttpException::class);
+        $controller->registerChallenge(
+            $this->buildHostRequest(),
+            new RequestDataBag(['password' => self::PLAIN_PASSWORD]),
+            $context,
+            $this->customerOf($context)
+        );
+    }
+
+    /**
+     * Knowing one's own password must not open an unlimited supply of challenges:
+     * each one is a cache entry. The public challenge bucket bounds issuance.
+     */
+    public function testChallengeIssuanceStaysBoundedWithTheRightPassword(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $context = $this->createCustomerContext($customerId);
+        $controller = $this->controllerWithRealLimiters();
+        $limit = $this->limit('act_passkey_challenge');
+
+        for ($i = 1; $i <= $limit; ++$i) {
+            $response = $controller->registerChallenge(
+                $this->buildHostRequest(),
+                new RequestDataBag(['password' => self::PLAIN_PASSWORD]),
+                $context,
+                $this->customerOf($context)
+            );
+            self::assertSame(Response::HTTP_OK, $response->getStatusCode(), "attempt {$i}");
+        }
+
+        $this->expectException(TooManyRequestsHttpException::class);
+        $controller->registerChallenge(
+            $this->buildHostRequest(),
+            new RequestDataBag(['password' => self::PLAIN_PASSWORD]),
+            $context,
+            $this->customerOf($context)
+        );
+    }
+
+    /**
+     * Under APP_ENV=test the core swaps every limiter for a NoLimiter, so the real
+     * buckets are built by hand from the plugin's own configuration.
+     */
+    private function controllerWithRealLimiters(): PasskeyManageStoreApiController
+    {
+        $rateLimiter = new RateLimiter();
+        foreach (['act_passkey_register', 'act_passkey_challenge'] as $name) {
+            $rateLimiter->registerLimiterFactory($name, new RateLimiterFactory(
+                $this->bucketConfig($name) + ['id' => $name],
+                new InMemoryStorage(),
+                $this->getContainer()->get(SystemConfigService::class),
+                $this->getContainer()->get(ClockInterface::class),
+            ));
+        }
+
+        return new PasskeyManageStoreApiController(
+            $this->getContainer()->get(RegistrationCeremony::class),
+            $this->credentials(),
+            $this->getContainer()->get(CustomerEligibilityGuard::class),
+            $this->getContainer()->get(DataValidator::class),
+            $rateLimiter,
+            $this->getContainer()->get(RelyingPartyIdResolver::class),
+            new NullLogger(),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function bucketConfig(string $name): array
+    {
+        $config = $this->getContainer()->getParameter('shopware.api.rate_limiter');
+        self::assertIsArray($config);
+        self::assertIsArray($config[$name] ?? null);
+
+        return $config[$name];
+    }
+
+    /**
+     * The first burst: `limit` for a fixed window, the first tier for a time backoff.
+     */
+    private function limit(string $name): int
+    {
+        $bucket = $this->bucketConfig($name);
+        $limit = $bucket['limits'][0]['limit'] ?? $bucket['limit'] ?? null;
+        self::assertIsInt($limit);
+
+        return $limit;
     }
 
     private function controller(): PasskeyManageStoreApiController

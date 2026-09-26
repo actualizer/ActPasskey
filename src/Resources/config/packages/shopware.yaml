@@ -24,9 +24,10 @@ shopware:
                     -   limit: 10
                         interval: '300 seconds'
             # Caps how many challenge entries one client can write into the
-            # challenge pool. Keyed by IP alone (the flow is usernameless), so
-            # `fixed_window` over `time_backoff`: an escalating 24h lockout would
-            # bar every legitimate user behind the same NAT.
+            # challenge pool. The login challenges key it by IP alone (the flow is
+            # usernameless), so `fixed_window` over `time_backoff`: an escalating
+            # 24h lockout would bar every legitimate user behind the same NAT. The
+            # customer register challenge keys it by customer and IP.
             act_passkey_challenge:
                 enabled: true
                 policy: 'fixed_window'

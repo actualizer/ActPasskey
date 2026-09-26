@@ -95,11 +95,15 @@ class PasskeyManageStoreApiController
     ): JsonResponse {
         $this->guard->assertEligible($customer);
 
-        // ensureAccepted() before validatePassword(): see register() for why the
-        // password check must never run unthrottled.
         $rateLimitKey = $customer->getId() . '-' . (string) $request->getClientIp();
 
         try {
+            // Bounds challenge issuance as such: every challenge is a cache entry, and
+            // the reset below would otherwise leave a customer who knows the password
+            // an unlimited supply. Same bucket as the public login challenges.
+            $this->rateLimiter->ensureAccepted('act_passkey_challenge', $rateLimitKey);
+            // ensureAccepted() before validatePassword(): see register() for why the
+            // password check must never run unthrottled.
             $this->rateLimiter->ensureAccepted('act_passkey_register', $rateLimitKey);
         } catch (RateLimitExceededException $exception) {
             throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
@@ -107,10 +111,12 @@ class PasskeyManageStoreApiController
 
         $this->validatePassword($data, $context);
 
-        // Deliberately NO reset() here, unlike register(): createOptions() has no
-        // throwing failure path (UnsupportedHostException aside, which is not an
-        // auth-oracle result), so a reset would run unconditionally on every call
-        // and the bucket could never accumulate — the throttle would be inert.
+        // Only reached with the right password — validatePassword() throws otherwise,
+        // so wrong guesses keep accumulating. Without the reset, a customer who
+        // dismisses the browser prompt a few times would be locked out for minutes
+        // by a budget meant for password guessing.
+        $this->rateLimiter->reset('act_passkey_register', $rateLimitKey);
+
         try {
             $result = $this->registrationCeremony->createOptions(
                 Realm::Customer,
