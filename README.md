@@ -64,7 +64,7 @@ A login challenge is bound to the sales-channel context that requested it. Headl
 
 If the register button does not appear, the page is not running on a covered HTTPS domain or the browser lacks WebAuthn support (see [Domain coverage](#domain-coverage)).
 
-A passkey that is already registered for the account cannot be registered a second time: the browser or password manager refuses it, usually with a notice of its own, and the **Passkeys** card reports that the passkey is already registered. Use another authenticator, or remove the existing passkey first.
+A passkey that is already registered for the account cannot be registered a second time: the browser or password manager refuses it, usually with a notice of its own, and the **Passkeys** card reports that the passkey is already registered. Some third-party passkey managers instead show their own notice and then hand over to the browser; dismissing that prompt is reported as a cancelled registration. Use another authenticator, or remove the existing passkey first.
 
 ### Revoking passkeys of other accounts
 

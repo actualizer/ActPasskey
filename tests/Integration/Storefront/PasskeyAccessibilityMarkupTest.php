@@ -124,6 +124,21 @@ final class PasskeyAccessibilityMarkupTest extends TestCase
     }
 
     /**
+     * A dismissed browser prompt (NotAllowedError) gets its own text too — with a
+     * third-party passkey manager this is also how a duplicate ends.
+     */
+    public function testCardCarriesADedicatedCancelledText(): void
+    {
+        $card = $this->single($this->xpathFor($this->renderPasskeyCard()), '//*[@data-act-passkey-manage]');
+        $text = $card->getAttribute('data-cancelled-text');
+
+        self::assertNotSame('', $text);
+        self::assertNotSame($card->getAttribute('data-error-text'), $text);
+        self::assertNotSame($card->getAttribute('data-already-registered-text'), $text);
+        self::assertStringNotContainsString('act-passkey.manage', $text, 'the snippet must resolve, not print its key');
+    }
+
+    /**
      * Both plugins write their message into a region that is revealed first, which
      * only announces if the region is a live region to begin with.
      */

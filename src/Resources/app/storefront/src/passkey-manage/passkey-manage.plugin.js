@@ -21,6 +21,7 @@ export default class PasskeyManage extends Plugin {
         this.registerUrl = this.el.dataset.registerUrl;
         this.errorText = this.el.dataset.errorText || '';
         this.alreadyRegisteredText = this.el.dataset.alreadyRegisteredText || this.errorText;
+        this.cancelledText = this.el.dataset.cancelledText || this.errorText;
 
         this._initItems();
 
@@ -195,11 +196,23 @@ export default class PasskeyManage extends Plugin {
 
             this._submitRegistration(attestation, challengeId, password);
         } catch (error) {
-            // InvalidStateError: the authenticator already holds one of the account's
-            // passkeys (excludeCredentials). Anything else — cancelled prompt, no
-            // authenticator, a failed fetch — gets the generic text.
-            this._showError(error?.name === 'InvalidStateError' ? this.alreadyRegisteredText : this.errorText);
+            this._showError(this._registrationErrorText(error));
         }
+    }
+
+    // InvalidStateError: the browser's own passkey store already holds one of the
+    // account's passkeys (excludeCredentials). NotAllowedError: the prompt was
+    // dismissed — also how a duplicate ends with a third-party passkey manager,
+    // which shows its own notice and then hands over to the browser. Anything else
+    // (no authenticator, a failed fetch) gets the generic text.
+    _registrationErrorText(error) {
+        if (error?.name === 'InvalidStateError') {
+            return this.alreadyRegisteredText;
+        }
+        if (error?.name === 'NotAllowedError') {
+            return this.cancelledText;
+        }
+        return this.errorText;
     }
 
     // Without a name the server labels the credential "Passkey".

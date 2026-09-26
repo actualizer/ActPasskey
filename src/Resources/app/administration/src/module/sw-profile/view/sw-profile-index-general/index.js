@@ -211,12 +211,16 @@ Component.override('sw-profile-index-general', {
                 });
                 await this.loadPasskeys();
             } catch (error) {
-                // InvalidStateError: the authenticator already holds one of this
-                // account's passkeys (excludeCredentials).
+                // InvalidStateError: the browser's own passkey store already holds one
+                // of this account's passkeys (excludeCredentials). NotAllowedError: the
+                // prompt was dismissed — also how a duplicate ends with a third-party
+                // passkey manager, which shows its own notice first.
+                const messages = {
+                    InvalidStateError: 'act-passkey.manage.alreadyRegistered',
+                    NotAllowedError: 'act-passkey.manage.cancelled',
+                };
                 this.createNotificationError({
-                    message: error?.name === 'InvalidStateError'
-                        ? this.$t('act-passkey.manage.alreadyRegistered')
-                        : this.$t('act-passkey.manage.error'),
+                    message: this.$t(Object.hasOwn(messages, error?.name) ? messages[error.name] : 'act-passkey.manage.error'),
                 });
             } finally {
                 this.isPasskeyLoading = false;

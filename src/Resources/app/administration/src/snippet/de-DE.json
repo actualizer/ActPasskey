@@ -33,6 +33,7 @@
             "deleteSuccess": "Passkey entfernt.",
             "error": "Die Anfrage konnte nicht abgeschlossen werden.",
             "alreadyRegistered": "Dieser Passkey ist für dein Konto bereits registriert.",
+            "cancelled": "Die Passkey-Registrierung wurde abgebrochen.",
             "nameTooLong": "Der Passkey-Name darf nicht länger als {max} Zeichen sein.",
             "columnName": "Name",
             "columnCreatedAt": "Erstellt am",
