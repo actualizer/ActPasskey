@@ -147,6 +147,28 @@ final class EntityWriteProtectionTest extends TestCase
         self::assertCount(0, $this->credentials()->listOwned(Realm::Admin, $user['id'], $context));
     }
 
+    /**
+     * The clone warning is the owner's and the operator's signal that a key may have
+     * been copied. Clearing it through the generic API would hide exactly that.
+     */
+    public function testGenericApiCannotClearACloneWarning(): void
+    {
+        $owner = $this->createAdminUser();
+        $credentialId = $this->enrollPasskey($owner['id'], 'Copied Key');
+        $this->credentials()->markPossiblyCloned($credentialId, Context::createDefaultContext(), new \DateTimeImmutable());
+
+        $response = $this->apiRequest(
+            'PATCH',
+            '/api/act-passkey-credential/' . $credentialId,
+            $this->token($this->createAdminUser()),
+            ['cloneWarningAt' => null]
+        );
+
+        $this->assertDeniedByWriteProtection($response, 'act_passkey_credential');
+        $owned = $this->credentials()->listOwned(Realm::Admin, $owner['id'], Context::createDefaultContext());
+        self::assertNotNull($owned->first()?->getCloneWarningAt());
+    }
+
     public function testSanctionedUserHandleCreationStillWrites(): void
     {
         $user = $this->createAdminUser();

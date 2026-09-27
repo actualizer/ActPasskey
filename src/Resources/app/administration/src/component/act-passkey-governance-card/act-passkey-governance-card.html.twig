@@ -20,6 +20,18 @@
             :showSelection="false"
             :showActions="true"
         >
+            <template #column-name="{ item }">
+                <span class="sw-data-grid__cell-value">
+                    {{ item.name }}
+                </span>
+                <mt-badge
+                    v-if="item.cloneWarningAt"
+                    variant="attention"
+                >
+                    {{ $t('act-passkey.manage.cloneWarning') }}
+                </mt-badge>
+            </template>
+
             <template #column-createdAt="{ item }">
                 <span class="sw-data-grid__cell-value">
                     {{ formatDate(item.createdAt) }}

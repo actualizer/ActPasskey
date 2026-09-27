@@ -77,6 +77,9 @@ class PasskeyCredentialDefinition extends EntityDefinition
             new JsonField('transports', 'transports'),
             new StringField('name', 'name'),
             new DateTimeField('last_used_at', 'lastUsedAt'),
+            // Set by the ceremony, like signCount and lastUsedAt; the definition's
+            // WriteProtection keeps the generic API from clearing it.
+            new DateTimeField('clone_warning_at', 'cloneWarningAt'),
 
             new CreatedAtField(),
             new UpdatedAtField(),

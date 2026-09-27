@@ -134,6 +134,23 @@ final class PasskeyAdminManageControllerTest extends TestCase
         self::assertSame(Response::HTTP_OK, $response->getStatusCode(), (string) $response->getContent());
     }
 
+    public function testListShowsWhenAPasskeyMayBeCloned(): void
+    {
+        $user = $this->createAdminUser();
+        $credential = $this->enrollPasskey($user['id'], 'Copied Key');
+        $detectedAt = new \DateTimeImmutable('2026-09-27T10:00:00+00:00');
+        $this->credentials()->markPossiblyCloned($credential, Context::createDefaultContext(), $detectedAt);
+
+        $response = $this->apiRequest('POST', '/api/_action/act-passkey/admin/credentials', $this->token($user, 'write'));
+
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        $stamp = $data['credentials'][0]['cloneWarningAt'] ?? null;
+        self::assertIsString($stamp, (string) $response->getContent());
+        self::assertSame($detectedAt->getTimestamp(), (new \DateTimeImmutable($stamp))->getTimestamp());
+    }
+
     public function testRegisterPersistsTheCredentialForTheTokenOwner(): void
     {
         $userA = $this->createAdminUser();

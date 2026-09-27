@@ -3,10 +3,16 @@
 namespace Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony;
 
 use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
+use Actualize\Passkey\WebAuthn\Ceremony\CeremonyFactory;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
+use Actualize\Passkey\WebAuthn\Ceremony\WebauthnSerializer;
+use Actualize\Passkey\WebAuthn\Challenge\ChallengeStore;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LogLevel;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
@@ -209,6 +215,121 @@ final class CeremonyRoundTripTest extends TestCase
         $auth->verify(Realm::Admin, $asg2, $req2['challengeId'], $this->host, $ctx);
     }
 
+    public function testCounterRegressionMarksTheCredentialAndKeepsItUsable(): void
+    {
+        $logger = $this->spyLogger();
+        $auth = $this->authenticationCeremony($logger);
+        $credentials = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+        $this->enrollAndReturnCredentialId($this->getContainer()->get(RegistrationCeremony::class), $ctx, $accountId, 'Test Key');
+        $entityId = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first()?->getId();
+        self::assertIsString($entityId);
+
+        $this->authenticate($auth, $ctx, 5);
+
+        try {
+            $this->authenticate($auth, $ctx, 5);
+            self::fail('a counter regression must refuse the login');
+        } catch (CounterException) {
+        }
+
+        $marked = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first();
+        self::assertNotNull($marked?->getCloneWarningAt(), 'a counter regression must mark the credential');
+        self::assertSame(5, $marked->getSignCount(), 'the refused assertion must not move the counter');
+
+        $warnings = array_values(array_filter($logger->records, static fn (array $record): bool => $record['level'] === LogLevel::WARNING));
+        self::assertCount(1, $warnings);
+        self::assertSame(
+            ['credentialId' => $entityId, 'realm' => Realm::Admin->value, 'ownerId' => $accountId],
+            $warnings[0]['context'],
+            'row id, realm and owner only — never key material'
+        );
+
+        // The owner or an operator decides; the key itself keeps working.
+        self::assertSame($accountId, $this->authenticate($auth, $ctx, 6));
+        $after = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first();
+        self::assertSame(
+            $marked->getCloneWarningAt()?->getTimestamp(),
+            $after?->getCloneWarningAt()?->getTimestamp(),
+            'a later valid login must not clear the warning'
+        );
+    }
+
+    public function testASecondRegressionKeepsTheFirstStamp(): void
+    {
+        $auth = $this->authenticationCeremony($this->spyLogger());
+        $credentials = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+        $this->enrollAndReturnCredentialId($this->getContainer()->get(RegistrationCeremony::class), $ctx, $accountId, 'Test Key');
+        $entityId = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first()?->getId();
+        self::assertIsString($entityId);
+
+        $this->authenticate($auth, $ctx, 5);
+        $first = new \DateTimeImmutable('2020-01-01T00:00:00+00:00');
+        $credentials->markPossiblyCloned($entityId, $ctx, $first);
+
+        try {
+            $this->authenticate($auth, $ctx, 5);
+            self::fail('a counter regression must refuse the login');
+        } catch (CounterException) {
+        }
+
+        $after = $credentials->listOwned(Realm::Admin, $accountId, $ctx)->first();
+        self::assertSame($first->getTimestamp(), $after?->getCloneWarningAt()?->getTimestamp());
+    }
+
+    /**
+     * Synced passkeys report a sign count of 0 on every use. The library skips the
+     * counter check when both sides are 0, so they must never be marked.
+     */
+    public function testSyncedPasskeysWithoutACounterAreNeverMarked(): void
+    {
+        $auth = $this->authenticationCeremony($this->spyLogger());
+        $credentials = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+        $this->enrollAndReturnCredentialId($this->getContainer()->get(RegistrationCeremony::class), $ctx, $accountId, 'Synced Key');
+
+        self::assertSame($accountId, $this->authenticate($auth, $ctx, 0));
+        self::assertSame($accountId, $this->authenticate($auth, $ctx, 0));
+
+        self::assertNull($credentials->listOwned(Realm::Admin, $accountId, $ctx)->first()?->getCloneWarningAt());
+    }
+
+    /**
+     * A credential id is no secret. If an assertion with a low counter and a broken
+     * signature could mark a key, anyone could plant warnings. It cannot, because
+     * webauthn-lib checks the signature before the counter — this pins that order.
+     */
+    public function testAnUnsignedCounterRegressionMarksNothing(): void
+    {
+        $logger = $this->spyLogger();
+        $auth = $this->authenticationCeremony($logger);
+        $credentials = $this->getContainer()->get(CredentialRepository::class);
+        $ctx = Context::createDefaultContext();
+        $accountId = $this->createAdminUser();
+        $this->enrollAndReturnCredentialId($this->getContainer()->get(RegistrationCeremony::class), $ctx, $accountId, 'Test Key');
+        $this->authenticate($auth, $ctx, 5);
+
+        $request = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $forged = $this->withBrokenSignature(SoftwareAuthenticator::respondToGet($request['options'], $this->origin, 1));
+
+        // Captured, not asserted inside the try: a catch (\Throwable) would swallow self::fail().
+        $refusal = null;
+        try {
+            $auth->verify(Realm::Admin, $forged, $request['challengeId'], $this->host, $ctx);
+        } catch (\Throwable $caught) {
+            $refusal = $caught;
+        }
+
+        self::assertNotNull($refusal, 'a broken signature must refuse the login');
+        self::assertNotInstanceOf(CounterException::class, $refusal, 'the counter must not be checked before the signature');
+        self::assertNull($credentials->listOwned(Realm::Admin, $accountId, $ctx)->first()?->getCloneWarningAt());
+        self::assertSame([], $logger->records);
+    }
+
     public function testWrongOriginRejected(): void
     {
         $reg = $this->getContainer()->get(RegistrationCeremony::class);
@@ -377,6 +498,65 @@ final class CeremonyRoundTripTest extends TestCase
         }
 
         self::assertCount(0, $credentials->listOwned(Realm::Admin, $accountId, $ctx));
+    }
+
+    /**
+     * One full login with the newest enrolled key and the given sign count.
+     */
+    private function authenticate(AuthenticationCeremony $auth, Context $ctx, int $signCount): string
+    {
+        $request = $auth->createOptions(Realm::Admin, $this->host, $ctx);
+        $assertion = SoftwareAuthenticator::respondToGet($request['options'], $this->origin, $signCount);
+
+        return $auth->verify(Realm::Admin, $assertion, $request['challengeId'], $this->host, $ctx)->accountId;
+    }
+
+    /**
+     * The container's ceremony with only the logger swapped for a spy.
+     */
+    private function authenticationCeremony(AbstractLogger $logger): AuthenticationCeremony
+    {
+        $container = $this->getContainer();
+
+        return new AuthenticationCeremony(
+            $container->get(CeremonyFactory::class),
+            $container->get(ChallengeStore::class),
+            $container->get(CredentialRepository::class),
+            $container->get(RelyingPartyIdResolver::class),
+            $container->get(WebauthnSerializer::class),
+            $logger,
+        );
+    }
+
+    /**
+     * @return AbstractLogger&object{records: list<array{level: mixed, message: string, context: array<mixed>}>}
+     */
+    private function spyLogger(): AbstractLogger
+    {
+        return new class extends AbstractLogger {
+            /** @var list<array{level: mixed, message: string, context: array<mixed>}> */
+            public array $records = [];
+
+            public function log($level, $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
+    }
+
+    /**
+     * Flips the last byte of the assertion's signature: the id, counter and client
+     * data stay intact, only the proof of key possession is gone.
+     */
+    private function withBrokenSignature(string $assertionJson): string
+    {
+        /** @var array{response: array{signature: string}} $assertion */
+        $assertion = json_decode($assertionJson, true, 512, JSON_THROW_ON_ERROR);
+        $signature = (string) base64_decode(strtr($assertion['response']['signature'], '-_', '+/'), true);
+        $signature[\strlen($signature) - 1] = \chr(\ord($signature[\strlen($signature) - 1]) ^ 0x01);
+        $assertion['response']['signature'] = rtrim(strtr(base64_encode($signature), '+/', '-_'), '=');
+
+        return json_encode($assertion, JSON_THROW_ON_ERROR);
     }
 
     /**

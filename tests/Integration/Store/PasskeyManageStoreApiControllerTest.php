@@ -351,13 +351,14 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         self::assertCount(1, $data['credentials']);
         // Exactly these keys, in this order — never key material.
         self::assertSame(
-            ['id', 'name', 'aaguid', 'transports', 'createdAt', 'lastUsedAt'],
+            ['id', 'name', 'aaguid', 'transports', 'createdAt', 'lastUsedAt', 'cloneWarningAt'],
             array_keys($data['credentials'][0])
         );
         self::assertSame($credentialA, $data['credentials'][0]['id']);
         self::assertSame('A Key', $data['credentials'][0]['name']);
         // Never used yet — the account page renders this as "never".
         self::assertNull($data['credentials'][0]['lastUsedAt']);
+        self::assertNull($data['credentials'][0]['cloneWarningAt']);
     }
 
     public function testDeleteOfAForeignCredentialIsANoOp(): void

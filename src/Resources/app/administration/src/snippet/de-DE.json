@@ -40,6 +40,7 @@
             "columnCreatedAt": "Erstellt am",
             "columnLastUsedAt": "Zuletzt verwendet",
             "neverUsed": "Nie verwendet",
+            "cloneWarning": "Möglicherweise kopiert – bitte prüfen und ggf. entfernen",
             "adminRealmSuffix": "(Administration)"
         },
         "governance": {

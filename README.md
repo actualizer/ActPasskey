@@ -79,6 +79,12 @@ The **Last used** column counts accepted logins only. A login refused because th
 
 Full administrators can always revoke. For restricted roles, grant **Customer passkeys** (under *Customers*) or **User passkeys** (under *Settings*) with the *Delete* permission in *Users & permissions > Roles*. Every revocation is recorded in the log (see [Logging](#logging)).
 
+### Possibly cloned passkeys
+
+Many authenticators count their signatures, and the count only ever goes up. If a login presents a count that is not higher than the last one seen, another copy of the key may be in use. The login is refused, the event is logged (see [Logging](#logging)), and the passkey is marked **Possibly cloned** in the owner's own list and in the operator's **Passkeys** card. The mark shows when this was first detected and stays until the passkey is removed.
+
+The passkey itself keeps working with a valid, higher count, because some authenticators reset their counter, for example after a firmware update. If the owner cannot explain it, remove the passkey and register a new one. Synced passkeys (iCloud Keychain, Google Password Manager and most password managers) do not count and are never marked.
+
 ## Known limitations
 
 ### Administration SSO
@@ -116,7 +122,7 @@ A passkey name is limited to 128 characters. Registering a passkey with a longer
 
 Passkey diagnostics go to a dedicated `act_passkey` log channel, so they can be filtered — or silenced — without touching the rest of the Shopware log. WARNING-level records of that channel go to the plugin's own rotating file, `var/log/act_passkey_<environment>-<date>.log` (kept 30 days); NOTICE-level records follow the shop's normal Shopware log configuration instead. Logging never alters a response: every ceremony stays fail-closed, and the log only records why one failed. No WebAuthn payloads or credential data are written.
 
-Public authentication attempts (storefront login, the administration grant, the profile listing) log at NOTICE. A normal production log level does not write NOTICE, so failed or automated login attempts cannot bloat the log, while the detail becomes available as soon as an operator lowers the level for diagnosis. Operations that run after authentication — enrollment, rename, revoke — log at WARNING, because a failure there is genuinely unexpected.
+Public authentication attempts (storefront login, the administration grant, the profile listing) log at NOTICE. A normal production log level does not write NOTICE, so failed or automated login attempts cannot bloat the log, while the detail becomes available as soon as an operator lowers the level for diagnosis. Operations that run after authentication — enrollment, rename, revoke — log at WARNING, because a failure there is genuinely unexpected. One exception: a login whose signature counter did not go up (see [Possibly cloned passkeys](#possibly-cloned-passkeys)) logs at WARNING with the passkey's row id, realm and owner id. Only a correctly signed login can trigger it, so it cannot be flooded.
 
 Shopware's default production configuration only writes `error` and above, which would otherwise discard these WARNING-level records — this is why the plugin ships its own rotating file handler for the channel (see above). Operator revocations are written there as the audit record — who revoked which passkey of which account. NOTICE-level diagnostics still require lowering the level.
 

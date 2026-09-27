@@ -15,6 +15,20 @@
                 :showSelection="false"
                 :showActions="true"
             >
+                <template #column-name="{ item }">
+                    {% block act_passkey_profile_card_column_name %}
+                    <span class="sw-data-grid__cell-value">
+                        {{ item.name }}
+                    </span>
+                    <mt-badge
+                        v-if="item.cloneWarningAt"
+                        variant="attention"
+                    >
+                        {{ $t('act-passkey.manage.cloneWarning') }}
+                    </mt-badge>
+                    {% endblock %}
+                </template>
+
                 <template #column-createdAt="{ item }">
                     {% block act_passkey_profile_card_column_created_at %}
                     <span class="sw-data-grid__cell-value">

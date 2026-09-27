@@ -62,9 +62,27 @@ final class PasskeyGovernanceControllerTest extends TestCase
         self::assertIsArray($data);
         self::assertSame(['Owner Key'], array_column($data['credentials'], 'name'));
         self::assertSame(
-            ['id', 'name', 'aaguid', 'transports', 'createdAt', 'lastUsedAt'],
+            ['id', 'name', 'aaguid', 'transports', 'createdAt', 'lastUsedAt', 'cloneWarningAt'],
             array_keys($data['credentials'][0])
         );
+    }
+
+    public function testTheListShowsWhenAPasskeyMayBeCloned(): void
+    {
+        $operator = $this->createUser();
+        $owner = $this->createUser();
+        $credentialId = $this->enroll(Realm::Admin, $owner['id'], 'Owner Key');
+        $detectedAt = new \DateTimeImmutable('2026-09-27T10:00:00+00:00');
+        $this->credentials()->markPossiblyCloned($credentialId, Context::createDefaultContext(), $detectedAt);
+
+        $response = $this->apiRequest('POST', self::BASE . '/user/' . $owner['id'] . '/credentials', $this->token($operator, 'write'));
+
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        $stamp = $data['credentials'][0]['cloneWarningAt'] ?? null;
+        self::assertIsString($stamp, (string) $response->getContent());
+        self::assertSame($detectedAt->getTimestamp(), (new \DateTimeImmutable($stamp))->getTimestamp());
     }
 
     public function testFullAdminRevokesAnotherUsersPasskeyAfterStepUp(): void

@@ -37,6 +37,8 @@ class PasskeyCredentialEntity extends Entity
 
     protected ?\DateTimeInterface $lastUsedAt = null;
 
+    protected ?\DateTimeInterface $cloneWarningAt = null;
+
     public function getRealm(): string
     {
         return $this->realm;
@@ -181,5 +183,15 @@ class PasskeyCredentialEntity extends Entity
     public function setLastUsedAt(?\DateTimeInterface $lastUsedAt): void
     {
         $this->lastUsedAt = $lastUsedAt;
+    }
+
+    public function getCloneWarningAt(): ?\DateTimeInterface
+    {
+        return $this->cloneWarningAt;
+    }
+
+    public function setCloneWarningAt(?\DateTimeInterface $cloneWarningAt): void
+    {
+        $this->cloneWarningAt = $cloneWarningAt;
     }
 }

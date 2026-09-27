@@ -82,6 +82,27 @@ final class CredentialRepository
     }
 
     /**
+     * Stamps when a login first showed a signature counter that did not go up. The
+     * first stamp stays: a later regression must not move the date the owner and the
+     * operator were first warned about.
+     */
+    public function markPossiblyCloned(string $id, Context $context, \DateTimeInterface $detectedAt): void
+    {
+        $unmarked = (new Criteria([$id]))->addFilter(new EqualsFilter('cloneWarningAt', null));
+        if ($this->credentialRepository->searchIds($unmarked, $context)->getTotal() === 0) {
+            return;
+        }
+
+        $context->scope(
+            Context::SYSTEM_SCOPE,
+            fn (Context $systemContext) => $this->credentialRepository->update(
+                [['id' => $id, 'cloneWarningAt' => $detectedAt]],
+                $systemContext
+            )
+        );
+    }
+
+    /**
      * The combined id + realm + owner filter IS the IDOR defense for every mutation
      * below: a row is only touchable when all three match. Never weaken this to
      * id-only, and never inline a second copy — one owner check cannot drift.

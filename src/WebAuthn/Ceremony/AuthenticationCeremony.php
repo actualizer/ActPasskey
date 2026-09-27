@@ -8,12 +8,14 @@ use Actualize\Passkey\WebAuthn\Challenge\ChallengeStore;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Shopware\Core\Framework\Context;
 use Symfony\Component\Uid\Uuid as SymfonyUuid;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\CredentialRecord;
+use Webauthn\Exception\CounterException;
 use Webauthn\PublicKeyCredentialDescriptor;
 use Webauthn\PublicKeyCredentialRequestOptions;
 use Webauthn\TrustPath\EmptyTrustPath;
@@ -36,6 +38,7 @@ final class AuthenticationCeremony
         private readonly CredentialRepository $credentials,
         private readonly RelyingPartyIdResolver $rpIdResolver,
         private readonly WebauthnSerializer $serializer,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -113,7 +116,13 @@ final class AuthenticationCeremony
         );
         // Last argument is the expected user handle: the validator enforces that
         // the assertion's own userHandle matches the stored one.
-        $validator->check($record, $response, $options, $host, $entity->getUserHandle());
+        try {
+            $validator->check($record, $response, $options, $host, $entity->getUserHandle());
+        } catch (CounterException $exception) {
+            $this->markPossiblyCloned($entity, $context);
+
+            throw $exception;
+        }
 
         $this->credentials->updateSignCount(
             $entity->getId(),
@@ -121,14 +130,40 @@ final class AuthenticationCeremony
             $context
         );
 
-        $accountId = $entity->getRealm() === Realm::Admin->value
-            ? $entity->getUserId()
-            : $entity->getCustomerId();
+        $accountId = $this->ownerId($entity);
         if ($accountId === null) {
             throw new RuntimeException('Stored credential has no owner for its realm.');
         }
 
         return new AuthenticationResult($accountId, $entity->getId());
+    }
+
+    /**
+     * A signature counter that did not go up means another copy of the key may be
+     * signing too. The login stays refused (the exception is rethrown); the credential
+     * is only marked, not disabled — some authenticators reset their counter, so the
+     * owner or an operator decides whether to remove it.
+     *
+     * WARNING although this is a public route: webauthn-lib checks the signature before
+     * the counter, so only a genuinely signed assertion of a stored key gets here and
+     * bots cannot flood it. Logged before stamping, so the signal survives a failed write.
+     */
+    private function markPossiblyCloned(PasskeyCredentialEntity $entity, Context $context): void
+    {
+        $this->logger->warning('Passkey signature counter did not increase; the passkey may be cloned', [
+            'credentialId' => $entity->getId(),
+            'realm' => $entity->getRealm(),
+            'ownerId' => $this->ownerId($entity),
+        ]);
+
+        $this->credentials->markPossiblyCloned($entity->getId(), $context, new \DateTimeImmutable());
+    }
+
+    private function ownerId(PasskeyCredentialEntity $entity): ?string
+    {
+        return $entity->getRealm() === Realm::Admin->value
+            ? $entity->getUserId()
+            : $entity->getCustomerId();
     }
 
     private function buildOptions(

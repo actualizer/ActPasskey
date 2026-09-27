@@ -206,6 +206,24 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
         self::assertStringContainsString('no longer active', $body);
     }
 
+    public function testPossiblyClonedCredentialShowsTheWarningOnTheProfilePage(): void
+    {
+        $customerId = $this->createLoggedInCustomer();
+
+        // No stored rp id: a legacy row, listed on every domain.
+        $this->insertCredentialRow($customerId, null, 'Copied device', new \DateTimeImmutable());
+        $this->insertCredentialRow($customerId, null, 'Clean device');
+
+        $profileResponse = $this->request('GET', 'account/profile', []);
+        self::assertSame(200, $profileResponse->getStatusCode());
+
+        $body = (string) $profileResponse->getContent();
+        self::assertStringContainsString('Copied device', $body);
+        self::assertStringContainsString('Clean device', $body);
+        // The en-GB text, once: only the stamped row carries it.
+        self::assertSame(1, substr_count($body, 'Possibly cloned'));
+    }
+
     public function testRegisterBlockIsPresentOnASupportedHost(): void
     {
         $this->createLoggedInCustomer();
@@ -289,14 +307,18 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
             ->renderBlock('page_account_profile_passkeys', ['page' => $page]);
     }
 
-    private function insertCredentialRow(string $customerId, string $rpId, string $name): void
-    {
+    private function insertCredentialRow(
+        string $customerId,
+        ?string $rpId,
+        string $name,
+        ?\DateTimeInterface $cloneWarningAt = null
+    ): void {
         $repository = $this->getContainer()->get('act_passkey_credential.repository');
         self::assertInstanceOf(EntityRepository::class, $repository);
 
         Context::createDefaultContext()->scope(
             Context::SYSTEM_SCOPE,
-            function (Context $systemContext) use ($repository, $customerId, $rpId, $name): void {
+            function (Context $systemContext) use ($repository, $customerId, $rpId, $name, $cloneWarningAt): void {
                 $repository->create([[
                     'id' => Uuid::randomHex(),
                     'realm' => Realm::Customer->value,
@@ -307,6 +329,7 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
                     'signCount' => 0,
                     'userHandle' => random_bytes(32),
                     'name' => $name,
+                    'cloneWarningAt' => $cloneWarningAt,
                 ]], $systemContext);
             }
         );

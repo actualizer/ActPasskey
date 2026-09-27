@@ -42,6 +42,12 @@
                                                 {{ 'act-passkey.manage.orphaned'|trans|sw_sanitize }}
                                             </div>
                                         {% endif %}
+                                        {% if credential.cloneWarningAt %}
+                                            {# Text, not colour alone: the class only adds emphasis. #}
+                                            <div class="act-passkey-manage__clone-warning text-danger small">
+                                                {{ 'act-passkey.manage.cloneWarning'|trans|sw_sanitize }}
+                                            </div>
+                                        {% endif %}
                                     </div>
 
                                     <div class="col-12 col-sm-6 col-md-3 mt-2 mt-md-0"

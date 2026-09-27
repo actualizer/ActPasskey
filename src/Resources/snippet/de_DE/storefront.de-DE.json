@@ -29,7 +29,8 @@
             "nameTooLong": "Der Passkey-Name darf nicht länger als %max% Zeichen sein.",
             "lastUsed": "Zuletzt verwendet: %date%",
             "neverUsed": "Nie verwendet",
-            "orphaned": "Gehört zu einer nicht mehr aktiven Domain."
+            "orphaned": "Gehört zu einer nicht mehr aktiven Domain.",
+            "cloneWarning": "Möglicherweise kopiert – bitte prüfen und ggf. entfernen."
         }
     }
 }

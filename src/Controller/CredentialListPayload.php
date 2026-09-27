@@ -6,7 +6,8 @@ use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialCollection;
 
 /**
  * The one list shape every passkey listing returns, admin and store-api alike. Deliberately without key
- * material: no listing contains the credential id, public key, sign count or user handle.
+ * material: no listing contains the credential id, public key, sign count or user handle. `cloneWarningAt`
+ * is set once a login showed a signature counter that did not go up.
  */
 final class CredentialListPayload
 {
@@ -24,6 +25,7 @@ final class CredentialListPayload
                 'transports' => $credential->getTransports(),
                 'createdAt' => $credential->getCreatedAt()?->format(\DATE_ATOM),
                 'lastUsedAt' => $credential->getLastUsedAt()?->format(\DATE_ATOM),
+                'cloneWarningAt' => $credential->getCloneWarningAt()?->format(\DATE_ATOM),
             ];
         }
 
