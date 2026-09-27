@@ -67,6 +67,11 @@ class PasskeyAdminManageController
         UserVerifiedScopeGuard::assert($request);
         $userId = $this->userId($context);
 
+        // Each call writes a challenge into the cache. There is no password here to
+        // throttle (the step-up is the token scope), so this is the challenge bucket,
+        // keyed by user and IP like the customer route, and not the register bucket.
+        $this->rateLimiter->ensureAccepted('act_passkey_challenge', $userId . '-' . (string) $request->getClientIp());
+
         try {
             $result = $this->registrationCeremony->createOptions(
                 Realm::Admin,

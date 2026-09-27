@@ -100,6 +100,40 @@ final class PasskeyAdminManageControllerTest extends TestCase
         self::assertGreaterThan(0, $seconds);
     }
 
+    /**
+     * Every register challenge writes a cache entry, and the route has no password of its
+     * own to throttle (its step-up is the token scope). It therefore shares the challenge
+     * bucket with the customer route, keyed by user and IP: a flood is capped, and another
+     * administrator behind the same address is not affected.
+     */
+    public function testRegisterChallengeIsThrottledPerUser(): void
+    {
+        $user = $this->createAdminUser();
+        $other = $this->createAdminUser();
+        // Tokens first: minting one runs through core's own oauth limiter.
+        $token = $this->token($user, 'user-verified');
+        $otherToken = $this->token($other, 'user-verified');
+        $limit = $this->challengeLimit();
+        DisableRateLimiterCompilerPass::disableNoLimit();
+
+        for ($i = 1; $i <= $limit; ++$i) {
+            $response = $this->apiRequest('POST', '/api/_action/act-passkey/admin/register-challenge', $token);
+            self::assertSame(Response::HTTP_OK, $response->getStatusCode(), "attempt {$i}: " . $response->getContent());
+        }
+
+        $response = $this->apiRequest('POST', '/api/_action/act-passkey/admin/register-challenge', $token);
+
+        self::assertSame(Response::HTTP_TOO_MANY_REQUESTS, $response->getStatusCode(), (string) $response->getContent());
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        $seconds = $data['errors'][0]['meta']['parameters']['seconds'] ?? null;
+        self::assertIsInt($seconds, (string) $response->getContent());
+        self::assertGreaterThan(0, $seconds);
+
+        $response = $this->apiRequest('POST', '/api/_action/act-passkey/admin/register-challenge', $otherToken);
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode(), (string) $response->getContent());
+    }
+
     public function testRegisterPersistsTheCredentialForTheTokenOwner(): void
     {
         $userA = $this->createAdminUser();
@@ -363,6 +397,16 @@ final class PasskeyAdminManageControllerTest extends TestCase
             $browser->getResponse()->getStatusCode(),
             (string) $browser->getResponse()->getContent()
         );
+    }
+
+    private function challengeLimit(): int
+    {
+        $config = $this->getContainer()->getParameter('shopware.api.rate_limiter');
+        self::assertIsArray($config);
+        $limit = $config['act_passkey_challenge']['limit'] ?? null;
+        self::assertIsInt($limit);
+
+        return $limit;
     }
 
     private function credentials(): CredentialRepository
