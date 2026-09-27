@@ -195,6 +195,12 @@
             <tag name="kernel.event_subscriber"/>
         </service>
 
+        <!-- Removes a deleted account's user handle; its credentials go by FK cascade. -->
+        <service id="Actualize\Passkey\Subscriber\UserHandleCleanupSubscriber">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
         <service id="Actualize\Passkey\Twig\AdministrationLoginScriptsExtension">
             <argument type="service" id="kernel"/>
             <tag name="twig.extension"/>
