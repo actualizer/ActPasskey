@@ -46,4 +46,35 @@ final class ConfigXmlTest extends TestCase
 
         static::assertContains('ActPasskey.config.broadenParentDomain', $fieldNames);
     }
+
+    /**
+     * A public suffix such as co.uk gives an rp id every browser rejects, so every
+     * registration would fail. There is no PSL check; the help text has to say it.
+     */
+    public function testBroadenParentDomainHelpTextWarnsAgainstPublicSuffixes(): void
+    {
+        $configurationService = static::getContainer()->get(ConfigurationService::class);
+        static::assertInstanceOf(ConfigurationService::class, $configurationService);
+
+        $cards = $configurationService->getConfiguration('ActPasskey.config', Context::createDefaultContext());
+
+        $helpText = null;
+        foreach ($cards as $card) {
+            foreach ($card['elements'] ?? [] as $element) {
+                if ($element['name'] === 'ActPasskey.config.broadenParentDomain') {
+                    $helpText = $element['config']['helpText'] ?? null;
+                }
+            }
+        }
+
+        static::assertIsArray($helpText);
+        static::assertStringContainsString(
+            'Only enter a domain you own, never a public suffix such as co.uk or github.io',
+            (string) ($helpText['en-GB'] ?? '')
+        );
+        static::assertStringContainsString(
+            'Nur eine eigene Domain eintragen, niemals eine öffentliche Endung wie co.uk oder github.io',
+            (string) ($helpText['de-DE'] ?? '')
+        );
+    }
 }
