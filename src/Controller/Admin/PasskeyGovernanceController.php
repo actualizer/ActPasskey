@@ -7,12 +7,10 @@ use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -106,11 +104,7 @@ class PasskeyGovernanceController
         $actorId = $this->actorId($context);
         $rateLimitKey = $actorId . '-' . (string) $request->getClientIp();
 
-        try {
-            $this->rateLimiter->ensureAccepted('act_passkey_delete', $rateLimitKey);
-        } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
-        }
+        $this->rateLimiter->ensureAccepted('act_passkey_delete', $rateLimitKey);
 
         // No reset() on success: deleteOwned() has no throwing path, so a reset would run
         // on every call and the bucket could never fill — the throttle would be inert.

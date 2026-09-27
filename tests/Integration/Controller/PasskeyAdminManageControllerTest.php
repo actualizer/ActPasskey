@@ -12,6 +12,7 @@ use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\Api\OAuth\Scope\UserVerifiedScope;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\Test\RateLimiter\DisableRateLimiterCompilerPass;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\KernelLifecycleManager;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -66,6 +67,37 @@ final class PasskeyAdminManageControllerTest extends TestCase
         self::assertCount(1, $data['credentials']);
         self::assertSame($credentialA, $data['credentials'][0]['id']);
         self::assertSame('A Key', $data['credentials'][0]['name']);
+    }
+
+    protected function tearDown(): void
+    {
+        DisableRateLimiterCompilerPass::enableNoLimit();
+    }
+
+    /**
+     * The administration can only name the wait time if the 429 carries it. The API's
+     * error envelope drops response headers, so it has to be core's own exception,
+     * whose body states the seconds.
+     */
+    public function testThrottledDeleteAnswers429WithTheWaitTime(): void
+    {
+        $user = $this->createAdminUser();
+        $token = $this->token($user, 'user-verified');
+        DisableRateLimiterCompilerPass::disableNoLimit();
+
+        for ($i = 1; $i <= 5; ++$i) {
+            $response = $this->apiRequest('DELETE', '/api/_action/act-passkey/admin/credentials/' . Uuid::randomHex(), $token);
+            self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode(), (string) $response->getContent());
+        }
+
+        $response = $this->apiRequest('DELETE', '/api/_action/act-passkey/admin/credentials/' . Uuid::randomHex(), $token);
+
+        self::assertSame(Response::HTTP_TOO_MANY_REQUESTS, $response->getStatusCode(), (string) $response->getContent());
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        $seconds = $data['errors'][0]['meta']['parameters']['seconds'] ?? null;
+        self::assertIsInt($seconds, (string) $response->getContent());
+        self::assertGreaterThan(0, $seconds);
     }
 
     public function testRegisterPersistsTheCredentialForTheTokenOwner(): void

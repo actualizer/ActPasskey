@@ -6,7 +6,6 @@ use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService;
 use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
-use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\System\SalesChannel\ContextTokenResponse;
@@ -14,7 +13,6 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -42,11 +40,7 @@ class PasskeyStoreApiController
     #[Route(path: '/store-api/act-passkey/challenge', name: 'store-api.act-passkey.challenge', methods: ['POST'])]
     public function challenge(Request $request, SalesChannelContext $context): JsonResponse
     {
-        try {
-            $this->rateLimiter->ensureAccepted('act_passkey_challenge', (string) $request->getClientIp());
-        } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
-        }
+        $this->rateLimiter->ensureAccepted('act_passkey_challenge', (string) $request->getClientIp());
 
         try {
             $result = $this->authenticationCeremony->createOptions(
@@ -68,11 +62,7 @@ class PasskeyStoreApiController
         // Throttle before the body check, so a malformed flood is capped too.
         $rateLimitKey = (string) $request->getClientIp();
 
-        try {
-            $this->rateLimiter->ensureAccepted('act_passkey_login', $rateLimitKey);
-        } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
-        }
+        $this->rateLimiter->ensureAccepted('act_passkey_login', $rateLimitKey);
 
         $response = $data->get('passkey_response');
         $challengeId = $data->get('passkey_challenge_id');

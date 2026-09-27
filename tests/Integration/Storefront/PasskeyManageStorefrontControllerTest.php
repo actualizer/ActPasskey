@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\Struct\ArrayStruct;
+use Shopware\Core\Framework\Test\RateLimiter\DisableRateLimiterCompilerPass;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
@@ -51,6 +52,58 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
         $appUrl = (string) $this->getContainer()->getParameter('APP_URL');
         $this->host = (string) parse_url($appUrl, PHP_URL_HOST);
         $this->origin = rtrim($appUrl, '/');
+    }
+
+    protected function tearDown(): void
+    {
+        // Every test in this class but the throttle ones runs without limiters.
+        DisableRateLimiterCompilerPass::enableNoLimit();
+    }
+
+    /**
+     * The add-passkey form fetches its challenge via XHR; once throttled, the script
+     * needs the wait time to tell the customer how long to wait instead of a
+     * generic failure.
+     */
+    public function testThrottledRegisterChallengeReportsTheWaitTime(): void
+    {
+        $this->createLoggedInCustomer();
+        DisableRateLimiterCompilerPass::disableNoLimit();
+
+        for ($i = 1; $i <= 5; ++$i) {
+            $response = $this->request('POST', 'account/passkey/register-challenge', ['password' => 'wrong-' . $i]);
+            self::assertSame(400, $response->getStatusCode(), (string) $response->getContent());
+            self::assertSame(['error' => 'invalid_password'], json_decode((string) $response->getContent(), true));
+        }
+
+        $response = $this->request('POST', 'account/passkey/register-challenge', ['password' => self::PLAIN_PASSWORD]);
+
+        self::assertSame(429, $response->getStatusCode(), (string) $response->getContent());
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('throttled', $data['error'] ?? null);
+        self::assertIsInt($data['waitTime'] ?? null);
+        self::assertGreaterThan(0, $data['waitTime']);
+    }
+
+    public function testWrongPasswordOnDeleteSaysSoAndThrottlingShowsTheWaitTime(): void
+    {
+        $this->createLoggedInCustomer();
+        DisableRateLimiterCompilerPass::disableNoLimit();
+        $id = Uuid::randomHex();
+
+        $response = $this->request('POST', 'account/passkey/' . $id . '/delete', ['password' => 'wrong']);
+        self::assertSame(302, $response->getStatusCode(), (string) $response->getContent());
+        self::assertStringContainsString('The password is incorrect', (string) $this->request('GET', 'account/profile', [])->getContent());
+
+        for ($i = 2; $i <= 5; ++$i) {
+            $this->request('POST', 'account/passkey/' . $id . '/delete', ['password' => 'wrong']);
+        }
+
+        $response = $this->request('POST', 'account/passkey/' . $id . '/delete', ['password' => self::PLAIN_PASSWORD]);
+        self::assertSame(302, $response->getStatusCode(), (string) $response->getContent());
+        $profile = (string) $this->request('GET', 'account/profile', [])->getContent();
+        self::assertMatchesRegularExpression('/Too many requests\. Please wait \d+ seconds/', $profile);
     }
 
     public function testCustomerCanRegisterPasskeyAndGetsRedirectedWithSuccessFlash(): void
@@ -113,7 +166,7 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
         // The test storefront domain resolves the en_GB storefront snippet set.
         $profileResponse = $this->request('GET', 'account/profile', []);
         self::assertSame(200, $profileResponse->getStatusCode());
-        self::assertStringContainsString('could not be completed', (string) $profileResponse->getContent());
+        self::assertStringContainsString('The password is incorrect', (string) $profileResponse->getContent());
     }
 
     public function testOverLongRenameShowsAnErrorFlashAndKeepsTheName(): void

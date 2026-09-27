@@ -8,7 +8,9 @@
              data-register-url="{{ path('frontend.account.passkey.register') }}"
              data-error-text="{{ 'act-passkey.manage.error'|trans }}"
              data-already-registered-text="{{ 'act-passkey.manage.alreadyRegistered'|trans }}"
-             data-cancelled-text="{{ 'act-passkey.manage.cancelled'|trans }}">
+             data-cancelled-text="{{ 'act-passkey.manage.cancelled'|trans }}"
+             data-invalid-password-text="{{ 'act-passkey.manage.invalidPassword'|trans }}"
+             data-throttled-text="{{ 'error.rateLimitExceeded'|trans }}">
             <div class="card-body">
                 <div class="card-title">{{ 'act-passkey.manage.title'|trans|sw_sanitize }}</div>
 

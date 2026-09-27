@@ -34,6 +34,7 @@
             "error": "The request could not be completed.",
             "alreadyRegistered": "This passkey is already registered for your account.",
             "cancelled": "The passkey registration was cancelled.",
+            "rateLimited": "Too many attempts. Please wait {seconds} seconds and try again.",
             "nameTooLong": "The passkey name must not be longer than {max} characters.",
             "columnName": "Name",
             "columnCreatedAt": "Created at",
@@ -47,7 +48,7 @@
             "revokeSuccess": "Passkey revoked.",
             "confirmTitle": "Revoke passkey",
             "confirmText": "Revoke passkey \"{name}\"? The password login keeps working.",
-            "rateLimited": "Too many revocations in a short time. Please wait a moment and try again."
+            "rateLimited": "Too many revocations in a short time. Please wait {seconds} seconds and try again."
         }
     },
     "sw-privileges": {

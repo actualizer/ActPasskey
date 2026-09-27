@@ -10,14 +10,12 @@ use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Shopware\Core\Framework\Validation\DataValidator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -99,11 +97,7 @@ class PasskeyAdminManageController
         $userId = $this->userId($context);
         $rateLimitKey = $userId . '-' . (string) $request->getClientIp();
 
-        try {
-            $this->rateLimiter->ensureAccepted('act_passkey_register', $rateLimitKey);
-        } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
-        }
+        $this->rateLimiter->ensureAccepted('act_passkey_register', $rateLimitKey);
 
         $response = $request->request->get('passkey_response');
         $challengeId = $request->request->get('passkey_challenge_id');
@@ -183,11 +177,7 @@ class PasskeyAdminManageController
         $userId = $this->userId($context);
         $rateLimitKey = $userId . '-' . (string) $request->getClientIp();
 
-        try {
-            $this->rateLimiter->ensureAccepted('act_passkey_delete', $rateLimitKey);
-        } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
-        }
+        $this->rateLimiter->ensureAccepted('act_passkey_delete', $rateLimitKey);
 
         // Same as rename: no existence oracle, so the result is not surfaced.
         $this->credentials->deleteOwned($id, Realm::Admin, $userId, $context);

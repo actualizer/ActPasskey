@@ -7,6 +7,7 @@ use Actualize\Passkey\WebAuthn\Ceremony\AuthenticationCeremony;
 use Actualize\Passkey\WebAuthn\Customer\CustomerPasskeyLoginService;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
+use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Shopware\Core\Framework\RateLimiter\RateLimiterFactory;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
@@ -17,7 +18,6 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Shopware\Core\Test\TestDefaults;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
@@ -55,7 +55,7 @@ final class PasskeyLoginRateLimitTest extends TestCase
             }
         }
 
-        $this->expectException(TooManyRequestsHttpException::class);
+        $this->expectException(RateLimitExceededException::class);
         $controller->login($request, new RequestDataBag([]), $context);
     }
 

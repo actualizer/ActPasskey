@@ -1,4 +1,5 @@
 import template from './act-passkey-governance-card.html.twig';
+import { rateLimitSeconds } from '../../util/rate-limit';
 
 const { Component } = Shopware;
 
@@ -146,11 +147,11 @@ Component.register('act-passkey-governance-card', {
                 // The shared act_passkey_delete bucket is easily hit when an operator
                 // cleans up several passkeys after an incident — tell them why instead
                 // of the generic error.
-                const messageKey = error?.response?.status === 429
-                    ? 'act-passkey.governance.rateLimited'
-                    : 'act-passkey.manage.error';
+                const seconds = rateLimitSeconds(error);
                 this.createNotificationError({
-                    message: this.$t(messageKey),
+                    message: seconds !== null
+                        ? this.$t('act-passkey.governance.rateLimited', { seconds })
+                        : this.$t('act-passkey.manage.error'),
                 });
             } finally {
                 this.isLoading = false;

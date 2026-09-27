@@ -22,6 +22,9 @@ export default class PasskeyManage extends Plugin {
         this.errorText = this.el.dataset.errorText || '';
         this.alreadyRegisteredText = this.el.dataset.alreadyRegisteredText || this.errorText;
         this.cancelledText = this.el.dataset.cancelledText || this.errorText;
+        this.invalidPasswordText = this.el.dataset.invalidPasswordText || this.errorText;
+        // Core's throttle text; it still carries the %seconds% placeholder.
+        this.throttledText = this.el.dataset.throttledText || '';
 
         this._initItems();
 
@@ -160,7 +163,8 @@ export default class PasskeyManage extends Plugin {
             });
 
             if (!challengeResponse.ok) {
-                this._showError();
+                const failure = await challengeResponse.json().catch(() => ({}));
+                this._showError(this._challengeErrorText(failure));
                 return;
             }
 
@@ -198,6 +202,18 @@ export default class PasskeyManage extends Plugin {
         } catch (error) {
             this._showError(this._registrationErrorText(error));
         }
+    }
+
+    // The challenge route answers a wrong password and a throttled request with a
+    // JSON reason; anything else (network, server error) gets the generic text.
+    _challengeErrorText(failure) {
+        if (failure?.error === 'invalid_password') {
+            return this.invalidPasswordText;
+        }
+        if (failure?.error === 'throttled' && this.throttledText && Number.isInteger(failure.waitTime)) {
+            return this.throttledText.replace('%seconds%', String(failure.waitTime));
+        }
+        return this.errorText;
     }
 
     // InvalidStateError: the browser's own passkey store already holds one of the

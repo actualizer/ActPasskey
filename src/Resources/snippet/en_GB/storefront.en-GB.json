@@ -25,6 +25,7 @@
             "error": "The request could not be completed.",
             "alreadyRegistered": "This passkey is already registered for your account.",
             "cancelled": "The passkey registration was cancelled.",
+            "invalidPassword": "The password is incorrect.",
             "nameTooLong": "The passkey name must not be longer than %max% characters.",
             "lastUsed": "Last used: %date%",
             "neverUsed": "Never used",

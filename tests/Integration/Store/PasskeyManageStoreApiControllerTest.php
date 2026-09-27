@@ -20,6 +20,7 @@ use Shopware\Core\Checkout\Customer\Exception\CustomerOptinNotCompletedException
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Shopware\Core\Framework\RateLimiter\RateLimiterFactory;
 use Shopware\Core\Framework\Routing\RoutingException;
@@ -38,7 +39,6 @@ use Shopware\Core\Test\TestDefaults;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
 /**
@@ -578,7 +578,7 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
             }
         }
 
-        $this->expectException(TooManyRequestsHttpException::class);
+        $this->expectException(RateLimitExceededException::class);
         $controller->registerChallenge(
             $this->buildHostRequest(),
             new RequestDataBag(['password' => self::PLAIN_PASSWORD]),
@@ -608,7 +608,7 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
             self::assertSame(Response::HTTP_OK, $response->getStatusCode(), "attempt {$i}");
         }
 
-        $this->expectException(TooManyRequestsHttpException::class);
+        $this->expectException(RateLimitExceededException::class);
         $controller->registerChallenge(
             $this->buildHostRequest(),
             new RequestDataBag(['password' => self::PLAIN_PASSWORD]),

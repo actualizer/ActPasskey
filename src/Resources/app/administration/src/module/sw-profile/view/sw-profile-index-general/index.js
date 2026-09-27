@@ -1,5 +1,6 @@
 import template from './sw-profile-index-general.html.twig';
 import { base64UrlToBuffer, bufferToBase64Url } from '../../../../util/base64url';
+import { rateLimitSeconds } from '../../../../util/rate-limit';
 
 const { Component } = Shopware;
 
@@ -219,9 +220,14 @@ Component.override('sw-profile-index-general', {
                     InvalidStateError: 'act-passkey.manage.alreadyRegistered',
                     NotAllowedError: 'act-passkey.manage.cancelled',
                 };
-                this.createNotificationError({
-                    message: this.$t(Object.hasOwn(messages, error?.name) ? messages[error.name] : 'act-passkey.manage.error'),
-                });
+                const seconds = rateLimitSeconds(error);
+                let message;
+                if (seconds !== null) {
+                    message = this.$t('act-passkey.manage.rateLimited', { seconds });
+                } else {
+                    message = this.$t(Object.hasOwn(messages, error?.name) ? messages[error.name] : 'act-passkey.manage.error');
+                }
+                this.createNotificationError({ message });
             } finally {
                 this.isPasskeyLoading = false;
             }
@@ -252,9 +258,12 @@ Component.override('sw-profile-index-general', {
                     message: this.$t('act-passkey.manage.deleteSuccess'),
                 });
                 await this.loadPasskeys();
-            } catch {
+            } catch (error) {
+                const seconds = rateLimitSeconds(error);
                 this.createNotificationError({
-                    message: this.$t('act-passkey.manage.error'),
+                    message: seconds !== null
+                        ? this.$t('act-passkey.manage.rateLimited', { seconds })
+                        : this.$t('act-passkey.manage.error'),
                 });
                 this.isPasskeyLoading = false;
             }

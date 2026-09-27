@@ -62,6 +62,8 @@ The storefront login page then offers passkey sign-in.
 
 A login challenge is bound to the sales-channel context that requested it. Headless clients using the store-api routes must therefore send the same `sw-context-token` header to `/store-api/act-passkey/challenge` and `/store-api/act-passkey/login`; if the first call has none, reuse the token returned in its response header.
 
+Throttled requests answer `429` with Shopware's own rate-limit error; its `meta.parameters.seconds` states how long to wait before trying again.
+
 If the register button does not appear, the page is not running on a covered HTTPS domain or the browser lacks WebAuthn support (see [Domain coverage](#domain-coverage)).
 
 A passkey that is already registered for the account cannot be registered a second time: the browser or password manager refuses it, usually with a notice of its own, and the **Passkeys** card reports that the passkey is already registered. Some third-party passkey managers instead show their own notice and then hand over to the browser; dismissing that prompt is reported as a cancelled registration. Use another authenticator, or remove the existing passkey first.

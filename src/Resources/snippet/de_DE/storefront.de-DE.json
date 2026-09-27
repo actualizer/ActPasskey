@@ -25,6 +25,7 @@
             "error": "Die Anfrage konnte nicht abgeschlossen werden.",
             "alreadyRegistered": "Dieser Passkey ist für dein Konto bereits registriert.",
             "cancelled": "Die Passkey-Registrierung wurde abgebrochen.",
+            "invalidPassword": "Das Passwort ist nicht korrekt.",
             "nameTooLong": "Der Passkey-Name darf nicht länger als %max% Zeichen sein.",
             "lastUsed": "Zuletzt verwendet: %date%",
             "neverUsed": "Nie verwendet",

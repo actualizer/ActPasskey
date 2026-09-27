@@ -14,6 +14,7 @@ use Psr\Log\LogLevel;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Shopware\Core\Framework\RateLimiter\RateLimiterFactory;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
@@ -21,7 +22,6 @@ use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Shopware\Core\Test\TestDefaults;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
 /**
@@ -113,7 +113,7 @@ final class PasskeyGovernanceAuditTest extends TestCase
             $controller->revokeCustomer($customerId, Uuid::randomHex(), $this->request(), $context);
         }
 
-        $this->expectException(TooManyRequestsHttpException::class);
+        $this->expectException(RateLimitExceededException::class);
         $controller->revokeCustomer($customerId, Uuid::randomHex(), $this->request(), $context);
     }
 

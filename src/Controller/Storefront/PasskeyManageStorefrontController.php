@@ -6,6 +6,7 @@ use Actualize\Passkey\Controller\Store\PasskeyManageStoreApiController;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
+use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\Framework\Validation\Exception\ConstraintViolationException;
 use Shopware\Core\PlatformRequest;
@@ -49,6 +50,12 @@ class PasskeyManageStorefrontController extends StorefrontController
             // Wrong/missing step-up password: let the JS ceremony fail fast,
             // before ever prompting the browser's WebAuthn UI.
             return new JsonResponse(['error' => 'invalid_password'], Response::HTTP_BAD_REQUEST);
+        } catch (RateLimitExceededException $exception) {
+            // The script tells the customer how long to wait instead of failing silently.
+            return new JsonResponse(
+                ['error' => 'throttled', 'waitTime' => $exception->getWaitTime()],
+                Response::HTTP_TOO_MANY_REQUESTS
+            );
         }
     }
 
@@ -63,9 +70,14 @@ class PasskeyManageStorefrontController extends StorefrontController
         try {
             $this->manageStoreApi->register($request, $data, $context, $customer);
             $this->addFlash(self::SUCCESS, $this->trans('act-passkey.manage.registerSuccess'));
+        } catch (RateLimitExceededException $exception) {
+            $this->addThrottledFlash($exception);
+        } catch (ConstraintViolationException) {
+            // The only validation on register is the step-up password.
+            $this->addFlash(self::DANGER, $this->trans('act-passkey.manage.invalidPassword'));
         } catch (\Throwable) {
-            // Wrong step-up password, a stale challenge and a rate-limit hit all
-            // share one generic flash — never leak a 500 for a failed enrollment.
+            // A stale challenge or a failed verification: one generic flash — never
+            // leak a 500 for a failed enrollment.
             $this->addFlash(self::DANGER, $this->trans('act-passkey.manage.error'));
         }
 
@@ -116,13 +128,25 @@ class PasskeyManageStorefrontController extends StorefrontController
         try {
             $this->manageStoreApi->delete($id, $request, $data, $context, $customer);
             $this->addFlash(self::SUCCESS, $this->trans('act-passkey.manage.deleteSuccess'));
+        } catch (RateLimitExceededException $exception) {
+            $this->addThrottledFlash($exception);
+        } catch (ConstraintViolationException) {
+            // The only validation on delete is the step-up password.
+            $this->addFlash(self::DANGER, $this->trans('act-passkey.manage.invalidPassword'));
         } catch (\Throwable $exception) {
-            // Wrong step-up password or a rate-limit hit -> same generic error flash.
             // The store-api delete has no logging catch, so record it here.
             $this->logger->warning('Passkey delete failed', ['exception' => $exception]);
             $this->addFlash(self::DANGER, $this->trans('act-passkey.manage.error'));
         }
 
         return $this->redirectToRoute('frontend.account.profile.page');
+    }
+
+    /**
+     * Core's own throttle text, so it reads like every other rate limit in the shop.
+     */
+    private function addThrottledFlash(RateLimitExceededException $exception): void
+    {
+        $this->addFlash(self::INFO, $this->trans('error.rateLimitExceeded', ['%seconds%' => $exception->getWaitTime()]));
     }
 }

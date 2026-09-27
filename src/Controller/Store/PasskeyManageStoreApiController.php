@@ -13,7 +13,6 @@ use Actualize\Passkey\WebAuthn\RelyingParty\UnsupportedHostException;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\Validation\Constraint\CustomerPasswordMatches;
-use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
 use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\Framework\Validation\DataValidationDefinition;
@@ -24,7 +23,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
@@ -97,17 +95,13 @@ class PasskeyManageStoreApiController
 
         $rateLimitKey = $customer->getId() . '-' . (string) $request->getClientIp();
 
-        try {
-            // Bounds challenge issuance as such: every challenge is a cache entry, and
-            // the reset below would otherwise leave a customer who knows the password
-            // an unlimited supply. Same bucket as the public login challenges.
-            $this->rateLimiter->ensureAccepted('act_passkey_challenge', $rateLimitKey);
-            // ensureAccepted() before validatePassword(): see register() for why the
-            // password check must never run unthrottled.
-            $this->rateLimiter->ensureAccepted('act_passkey_register', $rateLimitKey);
-        } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
-        }
+        // Bounds challenge issuance as such: every challenge is a cache entry, and
+        // the reset below would otherwise leave a customer who knows the password
+        // an unlimited supply. Same bucket as the public login challenges.
+        $this->rateLimiter->ensureAccepted('act_passkey_challenge', $rateLimitKey);
+        // ensureAccepted() before validatePassword(): see register() for why the
+        // password check must never run unthrottled.
+        $this->rateLimiter->ensureAccepted('act_passkey_register', $rateLimitKey);
 
         $this->validatePassword($data, $context);
 
@@ -156,11 +150,7 @@ class PasskeyManageStoreApiController
         // password with no throttle at all.
         $rateLimitKey = $customer->getId() . '-' . (string) $request->getClientIp();
 
-        try {
-            $this->rateLimiter->ensureAccepted('act_passkey_register', $rateLimitKey);
-        } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
-        }
+        $this->rateLimiter->ensureAccepted('act_passkey_register', $rateLimitKey);
 
         $this->validatePassword($data, $context);
 
@@ -256,11 +246,7 @@ class PasskeyManageStoreApiController
         // password check must never run unthrottled.
         $rateLimitKey = $customer->getId() . '-' . (string) $request->getClientIp();
 
-        try {
-            $this->rateLimiter->ensureAccepted('act_passkey_delete', $rateLimitKey);
-        } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
-        }
+        $this->rateLimiter->ensureAccepted('act_passkey_delete', $rateLimitKey);
 
         $this->validatePassword($data, $context);
 

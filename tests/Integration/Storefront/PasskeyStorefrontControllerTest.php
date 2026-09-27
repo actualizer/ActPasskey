@@ -10,6 +10,8 @@ use Actualize\Passkey\WebAuthn\Credential\Realm;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\RateLimiter\RateLimiter;
+use Shopware\Core\Framework\Test\RateLimiter\DisableRateLimiterCompilerPass;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory;
@@ -52,6 +54,38 @@ final class PasskeyStorefrontControllerTest extends TestCase
         $appUrl = (string) $this->getContainer()->getParameter('APP_URL');
         $this->host = (string) parse_url($appUrl, PHP_URL_HOST);
         $this->origin = rtrim($appUrl, '/');
+    }
+
+    private const THROTTLE_TEST_IP = '203.0.113.77';
+
+    protected function tearDown(): void
+    {
+        // The real limiter keeps its state in a shared store: clear this test's key
+        // while it is still the real one, then switch the no-op limiters back on.
+        if (!DisableRateLimiterCompilerPass::isDisabled()) {
+            $this->getContainer()->get(RateLimiter::class)->reset('act_passkey_login', self::THROTTLE_TEST_IP);
+        }
+        DisableRateLimiterCompilerPass::enableNoLimit();
+    }
+
+    /**
+     * Like core's password login: a throttled passkey login lands on the login page
+     * with the wait time, never on an error page.
+     */
+    public function testThrottledPasskeyLoginShowsTheWaitTimeOnTheLoginPage(): void
+    {
+        DisableRateLimiterCompilerPass::disableNoLimit();
+        $server = ['REMOTE_ADDR' => self::THROTTLE_TEST_IP];
+
+        for ($i = 1; $i <= 10; ++$i) {
+            $response = $this->request('POST', 'account/login/passkey', [], [], $server);
+            self::assertSame(200, $response->getStatusCode(), "attempt {$i}");
+        }
+
+        $response = $this->request('POST', 'account/login/passkey', [], [], $server);
+
+        self::assertSame(200, $response->getStatusCode(), 'a throttled login must render the login page, not an error page');
+        self::assertMatchesRegularExpression('/Too many login attempts\. Please wait \d+ seconds/', (string) $response->getContent());
     }
 
     public function testChallengeRouteReturnsOptionsAndChallengeId(): void

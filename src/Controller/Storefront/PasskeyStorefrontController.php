@@ -13,7 +13,6 @@ use Shopware\Storefront\Controller\StorefrontController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -35,11 +34,7 @@ class PasskeyStorefrontController extends StorefrontController
     #[Route(path: '/account/login/passkey/challenge', name: 'frontend.account.login.passkey.challenge', defaults: ['XmlHttpRequest' => true], methods: ['POST'])]
     public function challenge(Request $request, SalesChannelContext $context): JsonResponse
     {
-        try {
-            $this->rateLimiter->ensureAccepted('act_passkey_challenge', (string) $request->getClientIp());
-        } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
-        }
+        $this->rateLimiter->ensureAccepted('act_passkey_challenge', (string) $request->getClientIp());
 
         try {
             $result = $this->authenticationCeremony->createOptions(
@@ -64,7 +59,13 @@ class PasskeyStorefrontController extends StorefrontController
         try {
             $this->rateLimiter->ensureAccepted('act_passkey_login', $rateLimitKey);
         } catch (RateLimitExceededException $exception) {
-            throw new TooManyRequestsHttpException($exception->getWaitTime(), '', $exception);
+            // Same as core's password login: back to the login page, which shows how
+            // long to wait, instead of an error page.
+            return $this->forwardToRoute(
+                'frontend.account.login.page',
+                ['loginError' => true, 'waitTime' => $exception->getWaitTime()],
+                []
+            );
         }
 
         $response = $request->request->get('passkey_response');
