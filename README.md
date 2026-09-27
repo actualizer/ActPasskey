@@ -81,9 +81,9 @@ Full administrators can always revoke. For restricted roles, grant **Customer pa
 
 ### Possibly cloned passkeys
 
-Many authenticators count their signatures, and the count only ever goes up. If a login presents a count that is not higher than the last one seen, another copy of the key may be in use. The login is refused, the event is logged (see [Logging](#logging)), and the passkey is marked **Possibly cloned** in the owner's own list and in the operator's **Passkeys** card. The mark shows when this was first detected and stays until the passkey is removed.
+Many authenticators count their signatures, and the count only ever goes up. If a login presents a count that is not higher than the last one seen, another copy of the key may be in use. The login is refused, the event is logged (see [Logging](#logging)), and the passkey is marked **Possibly cloned** in the owner's own list and in the operator's **Passkeys** card. The mark stays until the passkey is removed; the credential listings of the API report the time of the first detection as `cloneWarningAt`.
 
-The passkey itself keeps working with a valid, higher count, because some authenticators reset their counter, for example after a firmware update. If the owner cannot explain it, remove the passkey and register a new one. Synced passkeys (iCloud Keychain, Google Password Manager and most password managers) do not count and are never marked.
+The passkey is not disabled: a login with a count higher than the last one seen is still accepted — and that may come from either copy. An authenticator whose counter was reset, for example by a firmware update, stays refused until its count passes the last one seen. In either case, if the owner cannot explain the mark, remove the passkey and register a new one. Synced passkeys (iCloud Keychain, Google Password Manager and most password managers) do not count and are never marked.
 
 ## Known limitations
 
