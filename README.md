@@ -133,7 +133,7 @@ Shopware's default production configuration only writes `error` and above, which
 
 ## Support
 
-For issues and feature requests, please use the GitHub issue tracker.
+For issues and feature requests, please use the GitHub issue tracker. Please report security vulnerabilities privately instead, as described in the [security policy](https://github.com/actualizer/ActPasskey/security/policy).
 
 ## License
 
