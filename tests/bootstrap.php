@@ -23,6 +23,11 @@ putenv('APP_ENV=test');
 $_SERVER['KERNEL_CLASS'] = $_ENV['KERNEL_CLASS'] = \Shopware\Core\Kernel::class;
 putenv('KERNEL_CLASS=' . \Shopware\Core\Kernel::class);
 
+// The APP_SECRET in .env.test is shorter than the 256 bits the HS256 signer of the admin API
+// token requires. Pin a throwaway secret that is long enough.
+$_SERVER['APP_SECRET'] = $_ENV['APP_SECRET'] = 'act-passkey-phpunit-only-secret-key';
+putenv('APP_SECRET=act-passkey-phpunit-only-secret-key');
+
 // The DDEV `db` user only has DDL privileges on databases matching `test` / `test_%`,
 // not on the default `db_test`. Pin the test database into the granted namespace.
 $testDatabaseUrl = getenv('TEST_DATABASE_URL')
