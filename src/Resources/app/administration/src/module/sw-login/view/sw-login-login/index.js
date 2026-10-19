@@ -11,26 +11,23 @@ Component.override('sw-login-login', {
 
     data() {
         return {
-            passkeyError: false,
             isWebAuthnSupported: !!window.PublicKeyCredential,
         };
     },
 
     methods: {
         async onPasskeyLogin() {
-            this.passkeyError = false;
+            this.loginErrorMessage = '';
             this.$emit('is-loading');
 
             try {
                 this.loginService.setRememberMe(this.rememberMe);
                 await this.loginService.loginByPasskey();
                 await this.handleLoginSuccess();
-                this.$emit('is-not-loading');
             } catch {
-                this.passkeyError = true;
-                this.createNotificationError({
-                    message: this.$t('sw-login.act-passkey.error'),
-                });
+                // Core's own error banner: this component has no notification mixin.
+                this.loginErrorMessage = this.$t('sw-login.act-passkey.error');
+            } finally {
                 this.$emit('is-not-loading');
             }
         },
