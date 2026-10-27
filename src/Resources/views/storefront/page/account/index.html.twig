@@ -1,0 +1,22 @@
+{% sw_extends '@Storefront/storefront/page/account/index.html.twig' %}
+
+{% block page_account_overview_welcome %}
+    {{ parent() }}
+
+    {% block act_passkey_enrollment_prompt %}
+        {% set enrollmentPrompt = page.extensions.actPasskeyEnrollmentPrompt %}
+        {% if enrollmentPrompt %}
+            <div class="alert alert-info act-passkey-enrollment-prompt"
+                 data-act-passkey-enrollment-prompt
+                 data-dismiss-key="{{ enrollmentPrompt.get('dismissKey') }}"
+                 hidden>
+                <p>{{ 'act-passkey.enrollmentPrompt.text'|trans|sw_sanitize }}</p>
+                <a class="btn btn-primary"
+                   href="{{ path('frontend.account.profile.page') ~ '#act-passkeys' }}">{{ 'act-passkey.enrollmentPrompt.setUp'|trans|sw_sanitize }}</a>
+                <button type="button"
+                        class="btn btn-link"
+                        data-act-passkey-enrollment-prompt-dismiss>{{ 'act-passkey.enrollmentPrompt.dismiss'|trans|sw_sanitize }}</button>
+            </div>
+        {% endif %}
+    {% endblock %}
+{% endblock %}

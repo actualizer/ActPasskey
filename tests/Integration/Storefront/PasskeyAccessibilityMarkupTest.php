@@ -12,6 +12,7 @@ use Shopware\Core\Framework\Struct\ArrayStruct;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Storefront\Page\Account\Login\AccountLoginPage;
+use Shopware\Storefront\Page\Account\Overview\AccountOverviewPage;
 use Shopware\Storefront\Page\Account\Profile\AccountProfilePage;
 use Twig\Environment;
 
@@ -155,6 +156,38 @@ final class PasskeyAccessibilityMarkupTest extends TestCase
             'alert',
             $this->single($login, '//*[@data-act-passkey-login-error]')->getAttribute('role')
         );
+    }
+
+    public function testEnrollmentPromptUsesRealControlsAndLinksToThePasskeyCard(): void
+    {
+        $xpath = $this->xpathFor($this->renderEnrollmentPrompt(true));
+
+        $root = $this->single($xpath, '//*[@data-act-passkey-enrollment-prompt]');
+        self::assertTrue($root->hasAttribute('hidden'), 'the card starts hidden until the script allows it');
+        self::assertSame('dismiss-key-1', $root->getAttribute('data-dismiss-key'));
+
+        $this->single($xpath, '//a[substring(@href, string-length(@href) - string-length("#act-passkeys") + 1) = "#act-passkeys"]');
+        $this->single($xpath, '//button[@type="button"][@data-act-passkey-enrollment-prompt-dismiss]');
+    }
+
+    public function testEnrollmentPromptIsNotRenderedWithoutTheExtension(): void
+    {
+        self::assertStringNotContainsString(
+            'data-act-passkey-enrollment-prompt',
+            $this->renderEnrollmentPrompt(false)
+        );
+    }
+
+    private function renderEnrollmentPrompt(bool $withExtension): string
+    {
+        $page = new AccountOverviewPage();
+        if ($withExtension) {
+            $page->addExtension('actPasskeyEnrollmentPrompt', new ArrayStruct(['dismissKey' => 'dismiss-key-1']));
+        }
+
+        return $this->twig()
+            ->load('@ActPasskey/storefront/page/account/index.html.twig')
+            ->renderBlock('act_passkey_enrollment_prompt', ['page' => $page]);
     }
 
     private function renderPasskeyCard(string $credentialName = 'Kept device'): string

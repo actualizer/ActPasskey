@@ -8,6 +8,7 @@ use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -104,6 +105,27 @@ final class PasskeyManageStorefrontControllerTest extends TestCase
         self::assertSame(302, $response->getStatusCode(), (string) $response->getContent());
         $profile = (string) $this->request('GET', 'account/profile', [])->getContent();
         self::assertMatchesRegularExpression('/Too many requests\. Please wait \d+ seconds/', $profile);
+    }
+
+    public function testSelfDeleteRotatesTheTokenAndTheBrowserStaysLoggedIn(): void
+    {
+        $customerId = $this->createLoggedInCustomer();
+        $connection = $this->getContainer()->get(Connection::class);
+        self::assertInstanceOf(Connection::class, $connection);
+        $sql = 'SELECT token FROM sales_channel_api_context WHERE customer_id = :id';
+        $oldToken = $connection->fetchOne($sql, ['id' => Uuid::fromHexToBytes($customerId)]);
+        self::assertIsString($oldToken);
+        $id = $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext())->first()?->getId();
+        self::assertNotNull($id);
+
+        $response = $this->request('POST', 'account/passkey/' . $id . '/delete', ['password' => self::PLAIN_PASSWORD]);
+        self::assertSame(302, $response->getStatusCode(), (string) $response->getContent());
+
+        $newToken = $connection->fetchOne($sql, ['id' => Uuid::fromHexToBytes($customerId)]);
+        self::assertIsString($newToken);
+        self::assertNotSame($oldToken, $newToken);
+        // The browser's next request carries the rotated token and is still logged in.
+        self::assertSame(200, $this->request('GET', 'account/profile', [])->getStatusCode());
     }
 
     public function testCustomerCanRegisterPasskeyAndGetsRedirectedWithSuccessFlash(): void

@@ -3,6 +3,7 @@
 namespace Actualize\Passkey\Controller\Admin;
 
 use Actualize\Passkey\Controller\CredentialListPayload;
+use Actualize\Passkey\Session\SessionRevoker;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Psr\Log\LoggerInterface;
@@ -31,6 +32,7 @@ class PasskeyGovernanceController
         private readonly CredentialRepository $credentials,
         private readonly RateLimiter $rateLimiter,
         private readonly LoggerInterface $logger,
+        private readonly SessionRevoker $sessionRevoker,
     ) {
     }
 
@@ -109,6 +111,12 @@ class PasskeyGovernanceController
         // No reset() on success: deleteOwned() has no throwing path, so a reset would run
         // on every call and the bucket could never fill — the throttle would be inert.
         if ($this->credentials->deleteOwned($id, $realm, $ownerId, $context)) {
+            $sessionsEnded = match (true) {
+                $realm === Realm::Customer => $this->sessionRevoker->endCustomerSessions($ownerId, $id),
+                $ownerId === $actorId => false, // own passkey: ending the sessions would log the actor out
+                default => $this->sessionRevoker->endUserSessions($ownerId, $id),
+            };
+
             // WARNING, not NOTICE: this is the audit record of an operator removing someone
             // else's authentication factor, so it must survive a production log level.
             $this->logger->warning('Passkey revoked by operator', [
@@ -116,6 +124,7 @@ class PasskeyGovernanceController
                 'realm' => $realm->value,
                 'ownerId' => $ownerId,
                 'credentialId' => $id,
+                'sessionsEnded' => $sessionsEnded,
             ]);
         }
 

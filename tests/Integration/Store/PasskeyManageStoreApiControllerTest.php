@@ -3,20 +3,26 @@
 namespace Actualize\Passkey\Tests\Integration\Store;
 
 use Actualize\Passkey\Controller\Store\PasskeyManageStoreApiController;
+use Actualize\Passkey\Session\SessionRevoker;
 use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
 use Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard;
 use Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver;
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LogLevel;
 use Psr\Log\NullLogger;
 use Shopware\Core\Checkout\Customer\CustomerCollection;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Customer\Exception\CustomerNotFoundByIdException;
 use Shopware\Core\Checkout\Customer\Exception\CustomerOptinNotCompletedException;
+use Shopware\Core\Framework\Api\OAuth\AuthCodeRepository;
+use Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -26,12 +32,14 @@ use Shopware\Core\Framework\RateLimiter\RateLimiterFactory;
 use Shopware\Core\Framework\Routing\RoutingException;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\SalesChannelApiTestBehaviour;
+use Shopware\Core\Framework\Util\Random;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
 use Shopware\Core\Framework\Validation\DataValidator;
 use Shopware\Core\Framework\Validation\Exception\ConstraintViolationException;
 use Shopware\Core\System\SalesChannel\Context\AbstractSalesChannelContextFactory;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory;
+use Shopware\Core\System\SalesChannel\Context\SalesChannelContextPersister;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
@@ -396,6 +404,94 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         self::assertSame($credentialB, $ownedByB->first()?->getId());
     }
 
+    public function testDeleteRotatesTheCallersTokenAndEndsEveryOtherSession(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $credentialId = $this->enrollPasskey($customerId, 'Own Key');
+        $context = $this->createCustomerContext($customerId);
+        $callerToken = $context->getToken();
+        $otherToken = $this->persistSessions($context, $customerId);
+
+        $response = $this->controller()->delete(
+            $credentialId,
+            $this->buildHostRequest(),
+            new RequestDataBag(['password' => self::PLAIN_PASSWORD]),
+            $context,
+            $this->customerOf($context)
+        );
+
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode());
+        self::assertCount(0, $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext()));
+        $newToken = $response->headers->get('sw-context-token');
+        self::assertIsString($newToken);
+        self::assertNotSame($callerToken, $newToken);
+        self::assertSame($customerId, $this->sessionCustomerId($newToken));
+        // Another device sharing the caller's old token is logged out.
+        self::assertFalse($this->sessionRowExists($callerToken));
+        self::assertNull($this->sessionCustomerId($otherToken));
+    }
+
+    public function testDeleteStillSucceedsWhenEndingTheSessionsFails(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $credentialId = $this->enrollPasskey($customerId, 'Own Key');
+        $context = $this->createCustomerContext($customerId);
+        $callerToken = $context->getToken();
+        $spy = new class extends AbstractLogger {
+            /** @var list<array{level: mixed, message: string}> */
+            public array $records = [];
+
+            public function log($level, $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message];
+            }
+        };
+        $persister = $this->createMock(SalesChannelContextPersister::class);
+        $persister->method('replace')->willThrowException(new \RuntimeException('db down'));
+        $revoker = new SessionRevoker(
+            $persister,
+            $this->getContainer()->get(RefreshTokenRepository::class),
+            $this->getContainer()->get(AuthCodeRepository::class),
+            $spy,
+        );
+
+        $response = $this->controllerWithRealLimiters($revoker)->delete(
+            $credentialId,
+            $this->buildHostRequest(),
+            new RequestDataBag(['password' => self::PLAIN_PASSWORD]),
+            $context,
+            $this->customerOf($context)
+        );
+
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode());
+        self::assertCount(0, $this->credentials()->listOwned(Realm::Customer, $customerId, Context::createDefaultContext()));
+        self::assertSame($callerToken, $response->headers->get('sw-context-token'));
+        self::assertCount(1, $spy->records);
+        self::assertSame(LogLevel::WARNING, $spy->records[0]['level']);
+        self::assertSame('Passkey removed but sessions could not be ended', $spy->records[0]['message']);
+    }
+
+    public function testForeignDeleteEndsNoSession(): void
+    {
+        $customerId = $this->createCustomerRow();
+        $context = $this->createCustomerContext($customerId);
+        $callerToken = $context->getToken();
+        $otherToken = $this->persistSessions($context, $customerId);
+
+        $response = $this->controller()->delete(
+            Uuid::randomHex(),
+            $this->buildHostRequest(),
+            new RequestDataBag(['password' => self::PLAIN_PASSWORD]),
+            $context,
+            $this->customerOf($context)
+        );
+
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode());
+        self::assertSame($callerToken, $response->headers->get('sw-context-token'));
+        self::assertSame($customerId, $this->sessionCustomerId($callerToken));
+        self::assertSame($customerId, $this->sessionCustomerId($otherToken));
+    }
+
     public function testRenameOfAForeignCredentialIsANoOp(): void
     {
         $customerA = $this->createCustomerRow();
@@ -622,10 +718,10 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
      * Under APP_ENV=test the core swaps every limiter for a NoLimiter, so the real
      * buckets are built by hand from the plugin's own configuration.
      */
-    private function controllerWithRealLimiters(): PasskeyManageStoreApiController
+    private function controllerWithRealLimiters(?SessionRevoker $revoker = null): PasskeyManageStoreApiController
     {
         $rateLimiter = new RateLimiter();
-        foreach (['act_passkey_register', 'act_passkey_challenge'] as $name) {
+        foreach (['act_passkey_register', 'act_passkey_challenge', 'act_passkey_delete'] as $name) {
             $rateLimiter->registerLimiterFactory($name, new RateLimiterFactory(
                 $this->bucketConfig($name) + ['id' => $name],
                 new InMemoryStorage(),
@@ -642,6 +738,7 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
             $rateLimiter,
             $this->getContainer()->get(RelyingPartyIdResolver::class),
             new NullLogger(),
+            $revoker ?? $this->getContainer()->get(SessionRevoker::class),
         );
     }
 
@@ -742,6 +839,46 @@ final class PasskeyManageStoreApiControllerTest extends TestCase
         self::assertInstanceOf(CustomerEntity::class, $customer);
 
         return $customer;
+    }
+
+    /**
+     * Persists the calling context's token and a second session of the same customer
+     * (another sales channel: the table is unique per sales channel and customer).
+     */
+    private function persistSessions(SalesChannelContext $context, string $customerId): string
+    {
+        $persister = $this->getContainer()->get(SalesChannelContextPersister::class);
+        self::assertInstanceOf(SalesChannelContextPersister::class, $persister);
+
+        $persister->save($context->getToken(), [], TestDefaults::SALES_CHANNEL, $customerId);
+        $otherToken = Random::getAlphanumericString(32);
+        $persister->save($otherToken, [], $this->createSalesChannel()['id'], $customerId);
+
+        return $otherToken;
+    }
+
+    private function sessionRowExists(string $token): bool
+    {
+        $connection = $this->getContainer()->get(Connection::class);
+        self::assertInstanceOf(Connection::class, $connection);
+
+        return (int) $connection->fetchOne(
+            'SELECT COUNT(*) FROM sales_channel_api_context WHERE token = :token',
+            ['token' => $token]
+        ) > 0;
+    }
+
+    private function sessionCustomerId(string $token): ?string
+    {
+        $connection = $this->getContainer()->get(Connection::class);
+        self::assertInstanceOf(Connection::class, $connection);
+        $value = $connection->fetchOne(
+            'SELECT LOWER(HEX(customer_id)) FROM sales_channel_api_context WHERE token = :token',
+            ['token' => $token]
+        );
+        self::assertNotFalse($value, 'token row must exist');
+
+        return $value === null ? null : (string) $value;
     }
 
     private function createCustomerContext(string $customerId): SalesChannelContext

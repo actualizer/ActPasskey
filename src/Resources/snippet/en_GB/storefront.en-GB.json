@@ -1,5 +1,10 @@
 {
     "act-passkey": {
+        "enrollmentPrompt": {
+            "text": "Sign in faster and more securely: set up a passkey — then sign in with your fingerprint, face or device PIN, without a password.",
+            "setUp": "Set up a passkey",
+            "dismiss": "Not now"
+        },
         "login": {
             "button": "Sign in with a passkey",
             "divider": "or",

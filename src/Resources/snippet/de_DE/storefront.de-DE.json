@@ -1,5 +1,10 @@
 {
     "act-passkey": {
+        "enrollmentPrompt": {
+            "text": "Schneller und sicherer anmelden: Richten Sie einen Passkey ein — dann melden Sie sich per Fingerabdruck, Gesicht oder Geräte-PIN an, ohne Passwort.",
+            "setUp": "Passkey einrichten",
+            "dismiss": "Nicht jetzt"
+        },
         "login": {
             "button": "Mit Passkey anmelden",
             "divider": "oder",

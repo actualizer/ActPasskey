@@ -23,4 +23,18 @@
             <helpText lang="de-DE">Nur nötig, wenn APP_URL eine andere Subdomain nutzt als die Verkaufskanäle, z. B. APP_URL auf www.example.com und ein Kanal auf en.example.com. Gemeinsame registrierbare Domain ohne Schema eintragen, z. B. example.com. Nur eine eigene Domain eintragen, niemals eine öffentliche Endung wie co.uk oder github.io – der Browser lehnt sonst jeden Passkey ab. Sonst leer lassen. ACHTUNG: Eine Änderung macht alle bestehenden Kunden-Passkeys ungültig. Diese Einstellung gilt shopweit; sie ist nicht spezifisch für den oben ausgewählten Verkaufskanal.</helpText>
         </input-field>
     </card>
+
+    <card>
+        <title lang="en-GB">Customer prompts</title>
+        <title lang="de-DE">Kunden-Hinweise</title>
+
+        <input-field type="bool">
+            <name>enrollmentPrompt</name>
+            <defaultValue>true</defaultValue>
+            <label lang="en-GB">Invite customers to add a passkey</label>
+            <label lang="de-DE">Kunden zum Einrichten eines Passkeys einladen</label>
+            <helpText lang="en-GB">Shows customers without a passkey a notice with a link to set one up on the account overview. Customers can dismiss it; after dismissing it three times it no longer appears in that browser.</helpText>
+            <helpText lang="de-DE">Zeigt Kunden ohne Passkey auf der Kontoübersicht einen Hinweis mit Link zur Einrichtung. Kunden können ihn wegklicken; nach dreimaligem Wegklicken erscheint er in diesem Browser nicht mehr.</helpText>
+        </input-field>
+    </card>
 </config>

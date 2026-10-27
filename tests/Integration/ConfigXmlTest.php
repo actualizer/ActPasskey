@@ -77,4 +77,41 @@ final class ConfigXmlTest extends TestCase
             (string) ($helpText['de-DE'] ?? '')
         );
     }
+
+    public function testConfigXmlDeclaresEnrollmentPromptField(): void
+    {
+        $element = $this->findElement('ActPasskey.config.enrollmentPrompt');
+
+        static::assertNotNull($element);
+        static::assertSame('bool', $element['type']);
+    }
+
+    public function testEnrollmentPromptDefaultsToOn(): void
+    {
+        $element = $this->findElement('ActPasskey.config.enrollmentPrompt');
+
+        static::assertNotNull($element);
+        static::assertTrue($element['config']['defaultValue'] ?? null);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findElement(string $name): ?array
+    {
+        $configurationService = static::getContainer()->get(ConfigurationService::class);
+        static::assertInstanceOf(ConfigurationService::class, $configurationService);
+
+        $cards = $configurationService->getConfiguration('ActPasskey.config', Context::createDefaultContext());
+
+        foreach ($cards as $card) {
+            foreach ($card['elements'] ?? [] as $element) {
+                if ($element['name'] === $name) {
+                    return $element;
+                }
+            }
+        }
+
+        return null;
+    }
 }

@@ -3,6 +3,7 @@
 namespace Actualize\Passkey\Tests\Integration\Controller;
 
 use Actualize\Passkey\Controller\Admin\PasskeyGovernanceController;
+use Actualize\Passkey\Session\SessionRevoker;
 use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
@@ -12,6 +13,7 @@ use Psr\Clock\ClockInterface;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
+use Shopware\Core\Framework\Api\OAuth\Scope\UserVerifiedScope;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\RateLimiter\Exception\RateLimitExceededException;
@@ -19,6 +21,7 @@ use Shopware\Core\Framework\RateLimiter\RateLimiter;
 use Shopware\Core\Framework\RateLimiter\RateLimiterFactory;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Shopware\Core\Test\TestDefaults;
 use Symfony\Component\HttpFoundation\Request;
@@ -66,7 +69,55 @@ final class PasskeyGovernanceAuditTest extends TestCase
             'realm' => 'customer',
             'ownerId' => $customerId,
             'credentialId' => $credentialId,
+            'sessionsEnded' => true,
         ], $spy->records[0]['context']);
+    }
+
+    public function testAuditRecordsWhetherSessionsEnded(): void
+    {
+        $failingRevoker = new class extends SessionRevoker {
+            public function __construct()
+            {
+            }
+
+            public function endCustomerSessions(string $customerId, string $credentialId): bool
+            {
+                return false;
+            }
+        };
+        $customerId = $this->createCustomer();
+        $credentialId = $this->enrollCustomerPasskey($customerId);
+        $otherCustomerId = $this->createCustomer();
+        $failedId = $this->enrollCustomerPasskey($otherCustomerId);
+        $spy = $this->spyLogger();
+
+        $this->controller($spy, $this->containerLimiter())
+            ->revokeCustomer($customerId, $credentialId, $this->request(), $this->operatorContext(Uuid::randomHex()));
+        $this->controller($spy, $this->containerLimiter(), $failingRevoker)
+            ->revokeCustomer($otherCustomerId, $failedId, $this->request(), $this->operatorContext(Uuid::randomHex()));
+
+        self::assertCount(2, $spy->records);
+        self::assertTrue($spy->records[0]['context']['sessionsEnded']);
+        self::assertFalse($spy->records[1]['context']['sessionsEnded']);
+        $repository = $this->getContainer()->get(CredentialRepository::class);
+        self::assertInstanceOf(CredentialRepository::class, $repository);
+        self::assertCount(0, $repository->listOwned(Realm::Customer, $otherCustomerId, Context::createDefaultContext()));
+    }
+
+    public function testRevokingTheOperatorsOwnPasskeyAuditsNoSessionsEnded(): void
+    {
+        $spy = $this->spyLogger();
+        $operatorId = $this->createUser();
+        $credentialId = $this->enrollPasskey(Realm::Admin, $operatorId);
+        $request = $this->request();
+        $request->attributes->set(PlatformRequest::ATTRIBUTE_OAUTH_SCOPES, [UserVerifiedScope::IDENTIFIER]);
+
+        $this->controller($spy, $this->containerLimiter())
+            ->revokeUser($operatorId, $credentialId, $request, $this->operatorContext($operatorId));
+
+        self::assertCount(1, $spy->records);
+        self::assertSame($operatorId, $spy->records[0]['context']['ownerId']);
+        self::assertFalse($spy->records[0]['context']['sessionsEnded']);
     }
 
     public function testANoOpRevocationIsNotAudited(): void
@@ -117,12 +168,14 @@ final class PasskeyGovernanceAuditTest extends TestCase
         $controller->revokeCustomer($customerId, Uuid::randomHex(), $this->request(), $context);
     }
 
-    private function controller(AbstractLogger $logger, RateLimiter $rateLimiter): PasskeyGovernanceController
+    private function controller(AbstractLogger $logger, RateLimiter $rateLimiter, ?SessionRevoker $revoker = null): PasskeyGovernanceController
     {
         $credentials = $this->getContainer()->get(CredentialRepository::class);
         self::assertInstanceOf(CredentialRepository::class, $credentials);
+        $revoker ??= $this->getContainer()->get(SessionRevoker::class);
+        self::assertInstanceOf(SessionRevoker::class, $revoker);
 
-        return new PasskeyGovernanceController($credentials, $rateLimiter, $logger);
+        return new PasskeyGovernanceController($credentials, $rateLimiter, $logger, $revoker);
     }
 
     private function containerLimiter(): RateLimiter
@@ -164,14 +217,19 @@ final class PasskeyGovernanceAuditTest extends TestCase
 
     private function enrollCustomerPasskey(string $customerId): string
     {
+        return $this->enrollPasskey(Realm::Customer, $customerId);
+    }
+
+    private function enrollPasskey(Realm $realm, string $ownerId): string
+    {
         $context = Context::createDefaultContext();
         $ceremony = $this->getContainer()->get(RegistrationCeremony::class);
         self::assertInstanceOf(RegistrationCeremony::class, $ceremony);
 
-        $create = $ceremony->createOptions(Realm::Customer, $customerId, $this->host, $context);
+        $create = $ceremony->createOptions($realm, $ownerId, $this->host, $context);
         $ceremony->verify(
-            Realm::Customer,
-            $customerId,
+            $realm,
+            $ownerId,
             SoftwareAuthenticator::respondToCreate($create['options'], $this->origin),
             $create['challengeId'],
             $this->host,
@@ -181,7 +239,7 @@ final class PasskeyGovernanceAuditTest extends TestCase
 
         $credentials = $this->getContainer()->get(CredentialRepository::class);
         self::assertInstanceOf(CredentialRepository::class, $credentials);
-        $credential = $credentials->listOwned(Realm::Customer, $customerId, $context)->first();
+        $credential = $credentials->listOwned($realm, $ownerId, $context)->first();
         self::assertNotNull($credential);
 
         return $credential->getId();
@@ -221,5 +279,24 @@ final class PasskeyGovernanceAuditTest extends TestCase
         ]], Context::createDefaultContext());
 
         return $customerId;
+    }
+
+    private function createUser(): string
+    {
+        $userId = Uuid::randomHex();
+        /** @var EntityRepository $userRepository */
+        $userRepository = $this->getContainer()->get('user.repository');
+        $userRepository->create([[
+            'id' => $userId,
+            'localeId' => $this->getLocaleIdOfSystemLanguage(),
+            'username' => 'audit-' . Uuid::randomHex(),
+            'password' => TestDefaults::HASHED_PASSWORD,
+            'firstName' => 'Max',
+            'lastName' => 'Mustermann',
+            'email' => Uuid::randomHex() . '@example.test',
+            'admin' => true,
+        ]], Context::createDefaultContext());
+
+        return $userId;
     }
 }

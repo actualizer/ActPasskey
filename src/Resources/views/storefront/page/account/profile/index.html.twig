@@ -3,6 +3,7 @@
 {% block page_account_profile_mail_and_password %}
     {% block page_account_profile_passkeys %}
         <div class="card account-passkeys mb-4"
+             id="act-passkeys"
              data-act-passkey-manage
              data-challenge-url="{{ path('frontend.account.passkey.register.challenge') }}"
              data-register-url="{{ path('frontend.account.passkey.register') }}"

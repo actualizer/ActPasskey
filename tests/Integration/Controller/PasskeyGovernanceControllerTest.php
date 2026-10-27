@@ -6,6 +6,7 @@ use Actualize\Passkey\Tests\Integration\WebAuthn\Ceremony\SoftwareAuthenticator;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Api\ApiException;
@@ -17,7 +18,9 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\KernelLifecycleManager;
+use Shopware\Core\Framework\Test\TestCaseBase\SalesChannelApiTestBehaviour;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\System\SalesChannel\Context\SalesChannelContextPersister;
 use Shopware\Core\Test\TestDefaults;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -30,6 +33,7 @@ use Symfony\Component\HttpFoundation\Response;
 final class PasskeyGovernanceControllerTest extends TestCase
 {
     use IntegrationTestBehaviour;
+    use SalesChannelApiTestBehaviour;
 
     private const PLAIN_PASSWORD = 'shopware';
 
@@ -99,6 +103,82 @@ final class PasskeyGovernanceControllerTest extends TestCase
 
         self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode(), (string) $response->getContent());
         self::assertFalse($this->exists($id));
+    }
+
+    public function testCustomerRevokeEndsAllSessionsOfThatCustomer(): void
+    {
+        $operator = $this->createUser();
+        $customerId = $this->createCustomer();
+        $id = $this->enroll(Realm::Customer, $customerId, 'Customer Key');
+        $tokenA = Uuid::randomHex();
+        $tokenB = Uuid::randomHex();
+        // One row per (sales channel, customer): the second session needs another channel.
+        $this->persistSession($tokenA, $customerId, TestDefaults::SALES_CHANNEL);
+        $this->persistSession($tokenB, $customerId, $this->createSalesChannel()['id']);
+
+        $response = $this->apiRequest(
+            'DELETE',
+            self::BASE . '/customer/' . $customerId . '/credentials/' . $id,
+            $this->token($operator, 'write')
+        );
+
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode(), (string) $response->getContent());
+        self::assertNull($this->sessionCustomerId($tokenA));
+        self::assertNull($this->sessionCustomerId($tokenB));
+    }
+
+    public function testRevokingAnotherAdminsPasskeyRevokesTheirRefreshTokens(): void
+    {
+        $operator = $this->createUser();
+        $owner = $this->createUser();
+        $id = $this->enroll(Realm::Admin, $owner['id'], 'Owner Key');
+        $this->token($owner, 'write');
+        self::assertGreaterThan(0, $this->refreshTokenCount($owner['id']));
+
+        $response = $this->apiRequest(
+            'DELETE',
+            self::BASE . '/user/' . $owner['id'] . '/credentials/' . $id,
+            $this->token($operator, 'user-verified')
+        );
+
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode(), (string) $response->getContent());
+        self::assertSame(0, $this->refreshTokenCount($owner['id']));
+    }
+
+    public function testRevokingOwnPasskeyViaGovernanceKeepsTheSessions(): void
+    {
+        $operator = $this->createUser();
+        $id = $this->enroll(Realm::Admin, $operator['id'], 'Own Key');
+        $token = $this->token($operator, 'user-verified');
+        $before = $this->refreshTokenCount($operator['id']);
+        self::assertGreaterThan(0, $before);
+
+        $response = $this->apiRequest(
+            'DELETE',
+            self::BASE . '/user/' . $operator['id'] . '/credentials/' . $id,
+            $token
+        );
+
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode(), (string) $response->getContent());
+        self::assertFalse($this->exists($id));
+        self::assertSame($before, $this->refreshTokenCount($operator['id']));
+    }
+
+    public function testANoOpRevokeEndsNoSession(): void
+    {
+        $operator = $this->createUser();
+        $customerId = $this->createCustomer();
+        $session = Uuid::randomHex();
+        $this->persistSession($session, $customerId, TestDefaults::SALES_CHANNEL);
+
+        $response = $this->apiRequest(
+            'DELETE',
+            self::BASE . '/customer/' . $customerId . '/credentials/' . Uuid::randomHex(),
+            $this->token($operator, 'write')
+        );
+
+        self::assertSame(Response::HTTP_NO_CONTENT, $response->getStatusCode(), (string) $response->getContent());
+        self::assertSame($customerId, $this->sessionCustomerId($session));
     }
 
     public function testUserRevokeWithoutStepUpIsRejected(): void
@@ -313,6 +393,32 @@ final class PasskeyGovernanceControllerTest extends TestCase
 
         self::assertSame(404, $notAUuid->getStatusCode(), (string) $notAUuid->getContent());
         self::assertSame(404, $upperCase->getStatusCode(), (string) $upperCase->getContent());
+    }
+
+    private function persistSession(string $token, string $customerId, string $salesChannelId): void
+    {
+        $persister = $this->getContainer()->get(SalesChannelContextPersister::class);
+        self::assertInstanceOf(SalesChannelContextPersister::class, $persister);
+        $persister->save($token, [], $salesChannelId, $customerId);
+    }
+
+    private function sessionCustomerId(string $token): ?string
+    {
+        $value = $this->getContainer()->get(Connection::class)->fetchOne(
+            'SELECT LOWER(HEX(customer_id)) FROM sales_channel_api_context WHERE token = :token',
+            ['token' => $token]
+        );
+        self::assertNotFalse($value, 'token row must exist');
+
+        return $value === null ? null : (string) $value;
+    }
+
+    private function refreshTokenCount(string $userId): int
+    {
+        return (int) $this->getContainer()->get(Connection::class)->fetchOne(
+            'SELECT COUNT(*) FROM refresh_token WHERE user_id = :id',
+            ['id' => Uuid::fromHexToBytes($userId)]
+        );
     }
 
     private function credentials(): CredentialRepository

@@ -9,6 +9,8 @@ Passkeys are additive: the password login keeps working for every account. Anyon
 - Passwordless, phishing-resistant login via Passkeys (WebAuthn) for storefront customers
 - Passwordless login via Passkeys (WebAuthn) for administration users
 - Usernameless sign-in (discoverable credentials): the browser offers the matching passkey, no username needed
+- Invites customers without a passkey to add one (account overview, can be switched off)
+- Removing a passkey signs the account out on its other devices
 - Self-service management: register, rename and revoke your own passkeys from the admin profile page or the customer account
 - Operator revocation: authorised administrators can revoke — never create — the passkeys of other admin users and customers
 - Admin and customer passkeys are strictly separated: a customer passkey can never authenticate an administrator
@@ -60,6 +62,10 @@ From then on, the admin login page offers a passkey sign-in button.
 
 The storefront login page then offers passkey sign-in.
 
+Deleting your own passkey signs out your other devices; the current one stays signed in.
+
+Like a password change in Shopware core, this gives the current session a new context token (the cart is kept) and ends every other session of the customer, including other devices in the same sales channel. A store-api client receives its new token in the `sw-context-token` response header of the `204` and must use it from then on.
+
 A login challenge is bound to the sales-channel context that requested it. Headless clients using the store-api routes must therefore send the same `sw-context-token` header to `/store-api/act-passkey/challenge` and `/store-api/act-passkey/login`; if the first call has none, reuse the token returned in its response header.
 
 Throttled requests answer `429` with Shopware's own rate-limit error; its `meta.parameters.seconds` states how long to wait before trying again.
@@ -67,6 +73,12 @@ Throttled requests answer `429` with Shopware's own rate-limit error; its `meta.
 If the register button does not appear, the page is not running on a covered HTTPS domain or the browser lacks WebAuthn support (see [Domain coverage](#domain-coverage)).
 
 A passkey that is already registered for the account cannot be registered a second time: the browser or password manager refuses it, usually with a notice of its own, and the **Passkeys** card reports that the passkey is already registered. Some third-party passkey managers instead show their own notice and then hand over to the browser; dismissing that prompt is reported as a cancelled registration. Use another authenticator, or remove the existing passkey first.
+
+#### Add-a-passkey prompt
+
+On the account overview, customers without a passkey see a card that links to the **Passkeys** section of the profile (`/account/profile#act-passkeys`). **Not now** hides it for 30 days in that browser; after the third dismissal it no longer appears in that browser. Nothing is stored on the server for this.
+
+The prompt is switched on by default and stays on after an update to 1.3.0, even though no setting has been saved yet. To switch it off, untick **Invite customers to add a passkey** in the plugin configuration under **Customer prompts**; the setting can be made per sales channel.
 
 ### Revoking passkeys of other accounts
 
@@ -78,6 +90,8 @@ A password reset lets the owner back into a compromised account, but it does **n
 The **Last used** column counts accepted logins only. A login refused because the account is inactive, not yet confirmed or belongs to another user does not update it.
 
 Full administrators can always revoke. For restricted roles, grant **Customer passkeys** (under *Customers*) or **User passkeys** (under *Settings*) with the *Delete* permission in *Users & permissions > Roles*. Every revocation is recorded in the log (see [Logging](#logging)).
+
+Revoking a customer's passkey ends all of that customer's sessions. Revoking another administration user's passkey ends their sessions once their current access token expires (core default: about 10 minutes). Revoking your own passkey ends no session.
 
 ### Possibly cloned passkeys
 
@@ -96,6 +110,12 @@ The passkey **login** itself and the entire storefront side are unaffected — u
 This fails closed by design. Shopware core skips its own step-up under SSO, but core uses that check to guard profile edits, whereas this plugin uses it to guard the enrollment of an authentication factor. A passkey enrolled locally would keep working after the account is deprovisioned in the central identity provider — bypassing the very control SSO exists for. Proper support means requiring a fresh SSO re-authentication instead of a password prompt; that is a separate feature, not a configuration toggle.
 
 For the same reason, administrators signed in via SSO cannot revoke other **administration users'** passkeys. Revoking **customer** passkeys asks for no password confirmation and stays available.
+
+### Session end after revocation
+
+An administration access token stays valid until it expires (core default: about 10 minutes), so a revoked administration user can keep working that long; only the refresh is cut off at once.
+
+An administrator who deletes their own passkey, in their profile or through the governance card, ends no sessions. To sign out everywhere, change the password.
 
 ### Domain coverage
 
@@ -124,7 +144,7 @@ Passkey diagnostics go to a dedicated `act_passkey` log channel, so they can be 
 
 Public authentication attempts (storefront login, the administration grant, the profile listing) log at NOTICE. A normal production log level does not write NOTICE, so failed or automated login attempts cannot bloat the log, while the detail becomes available as soon as an operator lowers the level for diagnosis. Operations that run after authentication — enrollment, rename, revoke — log at WARNING, because a failure there is genuinely unexpected. One exception: a login whose signature counter did not go up (see [Possibly cloned passkeys](#possibly-cloned-passkeys)) logs at WARNING with the passkey's row id, realm and owner id. Only a correctly signed login can trigger it, so it cannot be flooded.
 
-Shopware's default production configuration only writes `error` and above, which would otherwise discard these WARNING-level records — this is why the plugin ships its own rotating file handler for the channel (see above). Operator revocations are written there as the audit record — who revoked which passkey of which account. NOTICE-level diagnostics still require lowering the level.
+Shopware's default production configuration only writes `error` and above, which would otherwise discard these WARNING-level records — this is why the plugin ships its own rotating file handler for the channel (see above). Operator revocations are written there as the audit record — who revoked which passkey of which account — including `sessionsEnded`, which says whether the account's sessions were ended. If ending them fails, the passkey is still removed and a WARNING "Passkey removed but sessions could not be ended" is logged. NOTICE-level diagnostics still require lowering the level.
 
 ## Compatibility
 

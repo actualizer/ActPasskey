@@ -108,6 +108,7 @@
             <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
             <argument type="service" id="Shopware\Core\Framework\RateLimiter\RateLimiter"/>
             <argument type="service" id="monolog.logger.act_passkey"/>
+            <argument type="service" id="Actualize\Passkey\Session\SessionRevoker"/>
             <tag name="controller.service_arguments"/>
         </service>
 
@@ -134,6 +135,13 @@
             <tag name="controller.service_arguments"/>
         </service>
 
+        <service id="Actualize\Passkey\Session\SessionRevoker">
+            <argument type="service" id="Shopware\Core\System\SalesChannel\Context\SalesChannelContextPersister"/>
+            <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
+            <argument type="service" id="Shopware\Core\Framework\Api\OAuth\AuthCodeRepository"/>
+            <argument type="service" id="monolog.logger.act_passkey"/>
+        </service>
+
         <!-- Customer passkey self-service (list/register/rename/delete). Every route
              is `_loginRequired` + CustomerEntity (self-enforcing, guests rejected),
              re-runs the eligibility guard and demands a password step-up on the
@@ -146,6 +154,7 @@
             <argument type="service" id="Shopware\Core\Framework\RateLimiter\RateLimiter"/>
             <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
             <argument type="service" id="monolog.logger.act_passkey"/>
+            <argument type="service" id="Actualize\Passkey\Session\SessionRevoker"/>
             <tag name="controller.service_arguments"/>
         </service>
 
@@ -193,6 +202,15 @@
              party id at all. -->
         <service id="Actualize\Passkey\Subscriber\Storefront\LoginPagePasskeySupportSubscriber">
             <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <!-- Decides server-side whether the account overview shows the passkey invitation. -->
+        <service id="Actualize\Passkey\Subscriber\Storefront\AccountOverviewEnrollmentPromptSubscriber" public="true">
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Credential\CredentialRepository"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\Customer\CustomerEligibilityGuard"/>
+            <argument type="service" id="Actualize\Passkey\WebAuthn\RelyingParty\RelyingPartyIdResolver"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
             <tag name="kernel.event_subscriber"/>
         </service>
 

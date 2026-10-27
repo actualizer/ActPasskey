@@ -4,6 +4,7 @@ namespace Actualize\Passkey\Controller\Store;
 
 use Actualize\Passkey\Controller\CredentialListPayload;
 use Actualize\Passkey\Controller\CredentialNameValidation;
+use Actualize\Passkey\Session\SessionRevoker;
 use Actualize\Passkey\WebAuthn\Ceremony\RegistrationCeremony;
 use Actualize\Passkey\WebAuthn\Credential\CredentialRepository;
 use Actualize\Passkey\WebAuthn\Credential\Realm;
@@ -50,6 +51,7 @@ class PasskeyManageStoreApiController
         private readonly RateLimiter $rateLimiter,
         private readonly RelyingPartyIdResolver $rpIdResolver,
         private readonly LoggerInterface $logger,
+        private readonly SessionRevoker $sessionRevoker,
     ) {
     }
 
@@ -250,8 +252,12 @@ class PasskeyManageStoreApiController
 
         $this->validatePassword($data, $context);
 
-        // Same as rename: no existence oracle, so the result is not surfaced.
-        $this->credentials->deleteOwned($id, Realm::Customer, $customer->getId(), $context->getContext());
+        // The result is never surfaced (no existence oracle); it only gates the session end,
+        // so a no-op delete ends nothing.
+        $deleted = $this->credentials->deleteOwned($id, Realm::Customer, $customer->getId(), $context->getContext());
+        if ($deleted) {
+            $this->sessionRevoker->endOtherCustomerSessions($context, $request, $id);
+        }
 
         // Deliberately NO reset() here, unlike register(): deleteOwned() has no
         // throwing path (foreign/missing rows both just return false), so a reset
@@ -259,7 +265,11 @@ class PasskeyManageStoreApiController
         // accumulate — the throttle against mass-revocation would be inert. Let
         // it decay on its configured interval instead.
 
-        return new Response(null, Response::HTTP_NO_CONTENT);
+        $response = new Response(null, Response::HTTP_NO_CONTENT);
+        // Set on every call (the unchanged token on a no-op) so the header is no existence oracle.
+        $response->headers->set(PlatformRequest::HEADER_CONTEXT_TOKEN, $context->getToken());
+
+        return $response;
     }
 
     /**
