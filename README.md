@@ -146,11 +146,6 @@ Public authentication attempts (storefront login, the administration grant, the 
 
 Shopware's default production configuration only writes `error` and above, which would otherwise discard these WARNING-level records — this is why the plugin ships its own rotating file handler for the channel (see above). Operator revocations are written there as the audit record — who revoked which passkey of which account — including `sessionsEnded`, which says whether the account's sessions were ended. If ending them fails, the passkey is still removed and a WARNING "Passkey removed but sessions could not be ended" is logged. NOTICE-level diagnostics still require lowering the level.
 
-## Compatibility
-
-- **Shopware Version**: 6.7.x
-- **PHP Version**: 8.4+
-
 ## Support
 
 For issues and feature requests, please use the GitHub issue tracker. Please report security vulnerabilities privately instead, as described in the [security policy](https://github.com/actualizer/ActPasskey/security/policy).
