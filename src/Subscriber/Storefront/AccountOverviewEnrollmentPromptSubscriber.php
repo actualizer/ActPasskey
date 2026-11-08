@@ -45,7 +45,7 @@ final class AccountOverviewEnrollmentPromptSubscriber implements EventSubscriber
         // Not getBool(): config.xml defaults are not written on plugin update, so an
         // unsaved key must read as "on".
         $enabled = $this->systemConfig->get(self::CONFIG_KEY, $context->getSalesChannelId());
-        if ($enabled !== null && !$enabled) {
+        if ($enabled !== null && !(bool) $enabled) {
             return;
         }
 
