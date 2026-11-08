@@ -4,6 +4,11 @@ A Shopware 6 plugin that adds Passkey / WebAuthn login for both the storefront a
 
 Passkeys are additive: the password login keeps working for every account. Anyone without a passkey, without WebAuthn support, or on a domain the shop does not cover simply sees the normal password form.
 
+## Requirements
+
+- Shopware `>=6.7 <6.8`, tested with 6.7.16.0
+- PHP 8.4 or higher
+
 ## Features
 
 - Passwordless, phishing-resistant login via Passkeys (WebAuthn) for storefront customers
@@ -15,11 +20,6 @@ Passkeys are additive: the password login keeps working for every account. Anyon
 - Operator revocation: authorised administrators can revoke — never create — the passkeys of other admin users and customers
 - Admin and customer passkeys are strictly separated: a customer passkey can never authenticate an administrator
 - Multi-domain aware: on a shop serving several storefront domains, each passkey is bound to the domain it was created on, so every domain issues and accepts its own domain-correct passkeys
-
-## Requirements
-
-- Shopware `>=6.7 <6.8`, tested with 6.7.16.0
-- PHP 8.4 or higher
 
 ## Installation
 
