@@ -20,7 +20,8 @@ class SessionRevoker
     public function __construct(
         private readonly SalesChannelContextPersister $contextPersister,
         private readonly RefreshTokenRepository $refreshTokens,
-        private readonly AuthCodeRepository $authCodes,
+        // Absent before Shopware 6.7.15, which issues no auth codes that could be revoked.
+        private readonly ?AuthCodeRepository $authCodes,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -81,7 +82,7 @@ class SessionRevoker
     {
         try {
             $this->refreshTokens->revokeRefreshTokensForUser($userId);
-            $this->authCodes->revokeAuthCodesForUser($userId);
+            $this->authCodes?->revokeAuthCodesForUser($userId);
 
             return true;
         } catch (\Throwable $exception) {

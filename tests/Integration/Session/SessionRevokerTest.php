@@ -229,6 +229,25 @@ final class SessionRevokerTest extends TestCase
         self::assertSame($credentialId, $spy->records[0]['context']['credentialId']);
     }
 
+    public function testEndUserSessionsWithoutAuthCodeSupportStillRevokesRefreshTokens(): void
+    {
+        $userA = Uuid::randomHex();
+        $userB = Uuid::randomHex();
+        $this->insertRefreshToken($userA);
+        $this->insertRefreshToken($userB);
+        $revoker = new SessionRevoker(
+            $this->getContainer()->get(SalesChannelContextPersister::class),
+            $this->getContainer()->get(RefreshTokenRepository::class),
+            null,
+            new NullLogger(),
+        );
+
+        self::assertTrue($revoker->endUserSessions($userA, Uuid::randomHex()));
+
+        self::assertSame(0, $this->refreshTokenCount($userA));
+        self::assertSame(1, $this->refreshTokenCount($userB));
+    }
+
     private function revoker(): SessionRevoker
     {
         return new SessionRevoker(

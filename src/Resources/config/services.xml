@@ -138,7 +138,7 @@
         <service id="Actualize\Passkey\Session\SessionRevoker">
             <argument type="service" id="Shopware\Core\System\SalesChannel\Context\SalesChannelContextPersister"/>
             <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
-            <argument type="service" id="Shopware\Core\Framework\Api\OAuth\AuthCodeRepository"/>
+            <argument type="service" id="Shopware\Core\Framework\Api\OAuth\AuthCodeRepository" on-invalid="null"/>
             <argument type="service" id="monolog.logger.act_passkey"/>
         </service>
 
