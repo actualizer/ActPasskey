@@ -7,9 +7,10 @@ use Actualize\Passkey\Entity\PasskeyCredential\PasskeyCredentialEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotEqualsAnyFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotFilter;
 
 final class CredentialRepository
 {
@@ -187,7 +188,8 @@ final class CredentialRepository
             // Only add the orphan branch when the reachable set is known; NOT IN ()
             // would otherwise match every row and defeat the channel filter.
             if ($reachableRpIds !== []) {
-                $branches[] = new NotEqualsAnyFilter('rpId', $reachableRpIds);
+                // NotEqualsAnyFilter only exists from Shopware 6.7.1.0 on.
+                $branches[] = new NotFilter(NotFilter::CONNECTION_AND, [new EqualsAnyFilter('rpId', $reachableRpIds)]);
             }
 
             $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, $branches));

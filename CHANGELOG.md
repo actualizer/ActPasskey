@@ -1,3 +1,7 @@
+# 1.3.2
+
+- Fixed: on Shopware 6.7.0 to 6.7.2 the password confirmation in the customer account failed, and on 6.7.0 loading the passkeys of a sales channel failed, because the plugin used Shopware APIs that only exist in later 6.7 releases.
+
 # 1.3.1
 
 - Fixed: version 1.3.0 did not start on Shopware 6.7.0 to 6.7.14 because it required a class that only exists from 6.7.15 on. Shops on those versions should update to 1.3.1. Below 6.7.15 Shopware issues no admin authorization codes, so ending sessions after a passkey removal works as before.

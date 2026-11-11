@@ -281,7 +281,7 @@ class PasskeyManageStoreApiController
     private function validatePassword(RequestDataBag $data, SalesChannelContext $context): void
     {
         $definition = new DataValidationDefinition('act_passkey.step_up');
-        $definition->add('password', new NotBlank(), new CustomerPasswordMatches(salesChannelContext: $context));
+        $definition->add('password', new NotBlank(), new CustomerPasswordMatches(['context' => $context]));
 
         $this->validator->validate(['password' => $data->get('password')], $definition);
     }

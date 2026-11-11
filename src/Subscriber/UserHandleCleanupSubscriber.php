@@ -40,12 +40,20 @@ final class UserHandleCleanupSubscriber implements EventSubscriberInterface
 
     public function onUserDeleted(EntityDeletedEvent $event): void
     {
-        $this->deleteHandles(Realm::Admin, $event->getIds());
+        $this->deleteHandles(Realm::Admin, $this->accountIds($event));
     }
 
     public function onCustomerDeleted(EntityDeletedEvent $event): void
     {
-        $this->deleteHandles(Realm::Customer, $event->getIds());
+        $this->deleteHandles(Realm::Customer, $this->accountIds($event));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function accountIds(EntityDeletedEvent $event): array
+    {
+        return array_values(array_filter($event->getIds(), \is_string(...)));
     }
 
     /**
